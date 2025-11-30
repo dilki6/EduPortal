@@ -213,12 +213,14 @@ export interface CreateQuestionRequest {
 export interface AssessmentAttempt {
   id: string;
   assessmentId: string;
+  assessmentTitle: string;
   studentId: string;
+  studentName: string;
   startedAt: string;
   completedAt?: string;
   score: number;
   maxScore: number;
-  status: AttemptStatus;
+  status: AttemptStatus | string; // Allow both enum and string from backend
 }
 
 export interface Answer {
@@ -355,6 +357,9 @@ export const assessmentApi = {
   
   getAttemptAnswers: (attemptId: string) => 
     apiClient.get<Answer[]>(`/assessments/attempts/${attemptId}/answers`),
+  
+  getAssessmentAttempts: (assessmentId: string) => 
+    apiClient.get<AssessmentAttempt[]>(`/assessments/${assessmentId}/attempts`),
 };
 
 // Progress APIs
