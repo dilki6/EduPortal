@@ -13,18 +13,31 @@ export interface User {
 
 interface AuthContextType {
   user: User | null;
-  login: (username: string, password: string) => Promise<boolean>;
+  login: (username: string, password: string) => Promise<User | null>;
   logout: () => void;
   isLoading: boolean;
+  isAuthenticated: boolean;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
+
+// LocalStorage keys
+const STORAGE_KEYS = {
+  TOKEN: 'token',
+  USER: 'user',
+  ROLE: 'userRole',
+  AUTH_STATUS: 'isAuthenticated',
+  LAST_ACTIVITY: 'lastActivity',
+};
+
+// Session timeout (24 hours in milliseconds)
+const SESSION_TIMEOUT = 24 * 60 * 60 * 1000;
 
 // Convert API user to local user format
 const convertApiUser = (apiUser: ApiUser): User => ({
   id: apiUser.id,
   username: apiUser.username,
-  role: apiUser.role === ApiUserRole.Teacher ? 'teacher' : 'student',
+  role: apiUser.role,
   name: apiUser.name,
   email: apiUser.email,
 });
@@ -32,62 +45,180 @@ const convertApiUser = (apiUser: ApiUser): User => ({
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+
+  // Check if session is still valid (not expired)
+  const isSessionValid = (): boolean => {
+    const lastActivity = localStorage.getItem(STORAGE_KEYS.LAST_ACTIVITY);
+    // If no lastActivity is stored, assume it's a fresh session (valid)
+    if (!lastActivity) {
+      console.log('⚠️ No lastActivity found, treating as valid (fresh session)');
+      return true;
+    }
+    
+    const timeSinceLastActivity = Date.now() - parseInt(lastActivity);
+    const isValid = timeSinceLastActivity < SESSION_TIMEOUT;
+    
+    if (!isValid) {
+      const hoursInactive = Math.floor(timeSinceLastActivity / (1000 * 60 * 60));
+      console.log(`⏰ Session expired: ${hoursInactive} hours inactive`);
+    }
+    
+    return isValid;
+  };
+
+  // Update last activity timestamp
+  const updateLastActivity = () => {
+    localStorage.setItem(STORAGE_KEYS.LAST_ACTIVITY, Date.now().toString());
+  };
+
+  // Clear all auth data from localStorage
+  const clearAuthData = () => {
+    localStorage.removeItem(STORAGE_KEYS.TOKEN);
+    localStorage.removeItem(STORAGE_KEYS.USER);
+    localStorage.removeItem(STORAGE_KEYS.ROLE);
+    localStorage.removeItem(STORAGE_KEYS.AUTH_STATUS);
+    localStorage.removeItem(STORAGE_KEYS.LAST_ACTIVITY);
+    setUser(null);
+    setIsAuthenticated(false);
+  };
 
   useEffect(() => {
-    // Check for stored token and validate session
-    const token = localStorage.getItem('token');
-    if (token) {
+    // Check for stored token and user data
+    const token = localStorage.getItem(STORAGE_KEYS.TOKEN);
+    const storedUser = localStorage.getItem(STORAGE_KEYS.USER);
+    const storedRole = localStorage.getItem(STORAGE_KEYS.ROLE);
+    const authStatus = localStorage.getItem(STORAGE_KEYS.AUTH_STATUS);
+    
+    console.log('🔍 Checking authentication on mount...');
+    console.log('Token:', token ? token.substring(0, 20) + '...' : 'null');
+    console.log('Stored user:', storedUser ? 'exists' : 'null');
+    console.log('Stored role:', storedRole);
+    console.log('Auth status:', authStatus);
+    
+    const sessionValid = isSessionValid();
+    console.log('Session valid:', sessionValid);
+    
+    // Restore session if we have token, user, and auth status
+    // Note: We check session validity but don't strictly require it for immediate restore
+    if (token && storedUser && authStatus === 'true') {
+      // Immediately restore user from localStorage (optimistic)
+      try {
+        const parsedUser = JSON.parse(storedUser);
+        setUser(parsedUser);
+        setIsAuthenticated(true);
+        setIsLoading(false);
+        
+        // Update last activity timestamp
+        updateLastActivity();
+        
+        console.log('✅ User restored from localStorage:', parsedUser);
+        
+        // Check if session is expired
+        if (!sessionValid) {
+          console.log('⚠️ Session was expired, but restored. Will validate with API...');
+        }
+      } catch (error) {
+        console.error('❌ Failed to parse stored user:', error);
+        clearAuthData();
+        setIsLoading(false);
+        return;
+      }
+      
+      // Validate token in background (don't block UI)
       authApi.getMe()
         .then(apiUser => {
-          const user = convertApiUser(apiUser);
-          setUser(user);
-          localStorage.setItem('user', JSON.stringify(user));
+          const validatedUser = convertApiUser(apiUser);
+          setUser(validatedUser);
+          setIsAuthenticated(true);
+          localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(validatedUser));
+          localStorage.setItem(STORAGE_KEYS.AUTH_STATUS, 'true');
+          updateLastActivity();
+          console.log('✅ Token validated, user updated:', validatedUser);
         })
-        .catch(() => {
-          // Token invalid, clear storage
-          localStorage.removeItem('token');
-          localStorage.removeItem('user');
-        })
-        .finally(() => {
-          setIsLoading(false);
+        .catch((error) => {
+          console.error('❌ Token validation failed:', error);
+          console.error('Error details:', error);
+          // Token invalid, clear everything
+          clearAuthData();
+          // Force reload to login page if token is invalid
+          window.location.href = '/login';
         });
     } else {
+      // No valid credentials or auth status missing
+      console.log('ℹ️ No stored credentials found or incomplete auth data');
+      if (token) console.log('  - Token exists but other data missing');
+      if (storedUser) console.log('  - User exists but other data missing');
+      if (authStatus !== 'true') console.log('  - Auth status is not true:', authStatus);
       setIsLoading(false);
     }
   }, []);
 
-  const login = async (username: string, password: string): Promise<boolean> => {
+  // Track user activity to keep session alive
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const handleActivity = () => {
+      updateLastActivity();
+    };
+
+    // Listen for user activity
+    window.addEventListener('mousemove', handleActivity);
+    window.addEventListener('keypress', handleActivity);
+    window.addEventListener('click', handleActivity);
+    window.addEventListener('scroll', handleActivity);
+
+    return () => {
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('keypress', handleActivity);
+      window.removeEventListener('click', handleActivity);
+      window.removeEventListener('scroll', handleActivity);
+    };
+  }, [isAuthenticated]);
+
+  const login = async (username: string, password: string): Promise<User | null> => {
     setIsLoading(true);
     
     try {
       const response = await authApi.login({ username, password });
       const user = convertApiUser(response.user);
       
-      // Store token and user
-      localStorage.setItem('token', response.token);
-      localStorage.setItem('user', JSON.stringify(user));
+      // Store token, user, role, and auth status
+      localStorage.setItem(STORAGE_KEYS.TOKEN, response.token);
+      localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(user));
+      localStorage.setItem(STORAGE_KEYS.ROLE, user.role);
+      localStorage.setItem(STORAGE_KEYS.AUTH_STATUS, 'true');
+      updateLastActivity();
+      
       setUser(user);
+      setIsAuthenticated(true);
+      
+      console.log('✅ Login successful, user stored:', user);
+      console.log('✅ Token stored in localStorage');
+      console.log('✅ Role stored in localStorage:', user.role);
+      console.log('✅ Auth status set to: true');
       
       setIsLoading(false);
-      return true;
+      return user;
     } catch (error) {
-      console.error('Login failed:', error);
+      console.error('❌ Login failed:', error);
+      clearAuthData();
       setIsLoading(false);
-      return false;
+      return null;
     }
   };
 
   const logout = () => {
-    setUser(null);
-    localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    console.log('🚪 Logging out...');
+    clearAuthData();
   };
 
   const value = {
     user,
     login,
     logout,
-    isLoading
+    isLoading,
+    isAuthenticated,
   };
 
   return (

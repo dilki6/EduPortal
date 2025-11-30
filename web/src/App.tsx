@@ -2,10 +2,11 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AuthProvider, useAuth } from "@/context/AuthContext";
 import ProtectedRoute from "@/components/ProtectedRoute";
 import Navbar from "@/components/Navbar";
+import Index from "./pages/Index";
 import Login from "./pages/Login";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
@@ -26,14 +27,8 @@ const AppContent = () => {
     <div className="min-h-screen bg-background">
       {user && <Navbar />}
       <Routes>
+        <Route path="/" element={<Index />} />
         <Route path="/login" element={<Login />} />
-        <Route path="/" element={
-          user ? (
-            <Navigate to={user.role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard'} replace />
-          ) : (
-            <Navigate to="/login" replace />
-          )
-        } />
         
         {/* Teacher Routes */}
         <Route path="/teacher-dashboard" element={
@@ -84,6 +79,12 @@ const AppContent = () => {
         } />
 
         <Route path="/my-progress" element={
+          <ProtectedRoute allowedRoles={['student']}>
+            <MyProgress />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/analytics-student" element={
           <ProtectedRoute allowedRoles={['student']}>
             <MyProgress />
           </ProtectedRoute>

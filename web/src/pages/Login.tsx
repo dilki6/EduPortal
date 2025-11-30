@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,18 @@ const Login: React.FC = () => {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const { login, isLoading } = useAuth();
+  const { user, login, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Redirect if already logged in
+  useEffect(() => {
+    if (user && !isLoading) {
+      // Redirect based on role
+      const redirectPath = user.role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard';
+      navigate(redirectPath, { replace: true });
+    }
+  }, [user, isLoading, navigate]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -28,15 +37,18 @@ const Login: React.FC = () => {
       return;
     }
 
-    const success = await login(username, password);
+    const loggedInUser = await login(username, password);
     
-    if (success) {
+    if (loggedInUser) {
       toast({
         title: "Welcome!",
         description: "Login successful",
       });
-      // Force navigation after successful login
-      navigate('/', { replace: true });
+      // Navigate directly to the appropriate dashboard based on role
+      const redirectPath = loggedInUser.role === 'teacher' 
+        ? '/teacher-dashboard' 
+        : '/student-dashboard';
+      navigate(redirectPath, { replace: true });
     } else {
       toast({
         title: "Login Failed",
