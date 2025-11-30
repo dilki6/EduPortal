@@ -1,4 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import { authApi, UserRole as ApiUserRole, User as ApiUser } from '@/lib/api';
 
 export type UserRole = 'teacher' | 'student';
 
@@ -19,65 +20,66 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Mock users for demonstration
-const mockUsers: Record<string, User> = {
-  'teacher1': {
-    id: '1',
-    username: 'teacher1',
-    role: 'teacher',
-    name: 'Dr. Sarah Johnson',
-    email: 'sarah.johnson@university.edu'
-  },
-  'student1': {
-    id: '2',
-    username: 'student1',
-    role: 'student',
-    name: 'Alex Chen',
-    email: 'alex.chen@student.edu'
-  },
-  'student2': {
-    id: '3',
-    username: 'student2',
-    role: 'student',
-    name: 'Emily Davis',
-    email: 'emily.davis@student.edu'
-  }
-};
+// Convert API user to local user format
+const convertApiUser = (apiUser: ApiUser): User => ({
+  id: apiUser.id,
+  username: apiUser.username,
+  role: apiUser.role === ApiUserRole.Teacher ? 'teacher' : 'student',
+  name: apiUser.name,
+  email: apiUser.email,
+});
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for stored user session
-    const storedUser = localStorage.getItem('user');
-    if (storedUser) {
-      setUser(JSON.parse(storedUser));
+    // Check for stored token and validate session
+    const token = localStorage.getItem('token');
+    if (token) {
+      authApi.getMe()
+        .then(apiUser => {
+          const user = convertApiUser(apiUser);
+          setUser(user);
+          localStorage.setItem('user', JSON.stringify(user));
+        })
+        .catch(() => {
+          // Token invalid, clear storage
+          localStorage.removeItem('token');
+          localStorage.removeItem('user');
+        })
+        .finally(() => {
+          setIsLoading(false);
+        });
+    } else {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true);
     
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    // Mock authentication - in real app, this would be an API call
-    if (mockUsers[username] && password === 'password') {
-      const user = mockUsers[username];
-      setUser(user);
+    try {
+      const response = await authApi.login({ username, password });
+      const user = convertApiUser(response.user);
+      
+      // Store token and user
+      localStorage.setItem('token', response.token);
       localStorage.setItem('user', JSON.stringify(user));
+      setUser(user);
+      
       setIsLoading(false);
       return true;
+    } catch (error) {
+      console.error('Login failed:', error);
+      setIsLoading(false);
+      return false;
     }
-    
-    setIsLoading(false);
-    return false;
   };
 
   const logout = () => {
     setUser(null);
+    localStorage.removeItem('token');
     localStorage.removeItem('user');
   };
 

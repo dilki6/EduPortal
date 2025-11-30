@@ -24,17 +24,59 @@ BEGIN
     DROP DATABASE EduPortalDb;
     PRINT 'Database dropped successfully!';
     PRINT '';
+    
+    -- Wait a moment for files to be released
+    WAITFOR DELAY '00:00:02';
 END
 ELSE
 BEGIN
-    PRINT 'EduPortalDb does not exist. Will create fresh.';
+    PRINT 'EduPortalDb database not found in system.';
     PRINT '';
 END
 GO
 
--- Create new database
+-- Create new database with explicit file paths to avoid conflicts
 PRINT 'Creating fresh EduPortalDb database...';
-CREATE DATABASE EduPortalDb;
+PRINT 'Using default SQL Server data directory...';
+
+DECLARE @DataPath NVARCHAR(500);
+DECLARE @LogPath NVARCHAR(500);
+
+-- Get SQL Server default data path
+SET @DataPath = CAST(SERVERPROPERTY('InstanceDefaultDataPath') AS NVARCHAR(500));
+SET @LogPath = CAST(SERVERPROPERTY('InstanceDefaultLogPath') AS NVARCHAR(500));
+
+-- If paths are NULL (older SQL Server versions), use common default
+IF @DataPath IS NULL
+    SET @DataPath = 'C:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\DATA\';
+IF @LogPath IS NULL
+    SET @LogPath = 'C:\Program Files\Microsoft SQL Server\MSSQL15.MSSQLSERVER\MSSQL\DATA\';
+
+DECLARE @SQL NVARCHAR(MAX);
+SET @SQL = '
+CREATE DATABASE EduPortalDb
+ON PRIMARY 
+(
+    NAME = EduPortalDb_Data,
+    FILENAME = ''' + @DataPath + 'EduPortalDb.mdf'',
+    SIZE = 10MB,
+    MAXSIZE = UNLIMITED,
+    FILEGROWTH = 10%
+)
+LOG ON 
+(
+    NAME = EduPortalDb_Log,
+    FILENAME = ''' + @LogPath + 'EduPortalDb_log.ldf'',
+    SIZE = 5MB,
+    MAXSIZE = UNLIMITED,
+    FILEGROWTH = 10%
+);';
+
+PRINT 'Data file: ' + @DataPath + 'EduPortalDb.mdf';
+PRINT 'Log file: ' + @LogPath + 'EduPortalDb_log.ldf';
+PRINT '';
+
+EXEC sp_executesql @SQL;
 GO
 
 PRINT 'Database created successfully!';

@@ -127,8 +127,8 @@ const Login: React.FC = () => {
             <div className="mt-6 p-4 bg-muted/50 rounded-lg">
               <p className="text-sm text-muted-foreground mb-2 font-medium">Demo Credentials:</p>
               <div className="space-y-1 text-xs">
-                <p><strong>Teacher:</strong> username: teacher1, password: password</p>
-                <p><strong>Student:</strong> username: student1, password: password</p>
+                <p><strong>Teacher:</strong> username: teacher1, password: password123</p>
+                <p><strong>Student:</strong> username: student1, password: password123</p>
               </div>
             </div>
           </CardContent>
