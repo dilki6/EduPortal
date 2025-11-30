@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -8,8 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { FileText, Plus, Edit, Trash2, Clock, Users } from 'lucide-react';
+import { FileText, Plus, Edit, Trash2, Clock, Users, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { courseApi, assessmentApi, Course, Assessment as ApiAssessment, Question as ApiQuestion, CreateAssessmentRequest } from '@/lib/api';
 
 interface Question {
   id: string;
@@ -29,43 +30,21 @@ interface Assessment {
   courseName: string;
   questions: Question[];
   timeLimit: number; // in minutes
+  isPublished: boolean;
   createdAt: string;
 }
 
 const AssessmentManagement: React.FC = () => {
   const { toast } = useToast();
   
-  const [courses] = useState([
-    { id: '1', name: 'Advanced Mathematics' },
-    { id: '2', name: 'Physics Fundamentals' },
-    { id: '3', name: 'Chemistry Lab' }
-  ]);
-
-  const [assessments, setAssessments] = useState<Assessment[]>([
-    {
-      id: '1',
-      title: 'Calculus Basics',
-      description: 'Test on fundamental calculus concepts',
-      courseId: '1',
-      courseName: 'Advanced Mathematics',
-      questions: [
-        {
-          id: '1',
-          type: 'mcq',
-          question: 'What is the derivative of x²?',
-          options: ['x', '2x', 'x²', '2x²'],
-          correctAnswer: '2x',
-          points: 10
-        }
-      ],
-      timeLimit: 60,
-      createdAt: '2024-01-15'
-    }
-  ]);
-
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isQuestionDialogOpen, setIsQuestionDialogOpen] = useState(false);
   const [currentAssessment, setCurrentAssessment] = useState<Assessment | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingAssessmentId, setDeletingAssessmentId] = useState<string | null>(null);
 
   // Form states
   const [assessmentTitle, setAssessmentTitle] = useState('');
@@ -81,7 +60,53 @@ const AssessmentManagement: React.FC = () => {
   const [modelAnswer, setModelAnswer] = useState('');
   const [points, setPoints] = useState('');
 
-  const handleCreateAssessment = () => {
+  // Fetch courses and assessments on mount
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const fetchData = async () => {
+    try {
+      setIsLoading(true);
+      
+      // Fetch teacher's courses and assessments in parallel
+      const [fetchedCourses, fetchedAssessments] = await Promise.all([
+        courseApi.getMyTeachingCourses(),
+        assessmentApi.getMyTeachingAssessments()
+      ]);
+      
+      setCourses(fetchedCourses);
+
+      // Transform API assessments to local format with course names
+      const transformedAssessments = fetchedAssessments.map(assessment => {
+        const course = fetchedCourses.find(c => c.id === assessment.courseId);
+        return {
+          id: assessment.id,
+          title: assessment.title,
+          description: assessment.description,
+          courseId: assessment.courseId,
+          courseName: course?.name || 'Unknown Course',
+          timeLimit: assessment.durationMinutes,
+          isPublished: assessment.isPublished,
+          questions: [], // We'll fetch questions separately if needed
+          createdAt: assessment.createdAt
+        };
+      });
+      
+      setAssessments(transformedAssessments);
+    } catch (error) {
+      console.error('Failed to fetch data:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load courses and assessments",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateAssessment = async () => {
     if (!assessmentTitle.trim() || !assessmentDescription.trim() || !selectedCourse || !timeLimit) {
       toast({
         title: "Error",
@@ -91,26 +116,49 @@ const AssessmentManagement: React.FC = () => {
       return;
     }
 
-    const courseName = courses.find(c => c.id === selectedCourse)?.name || '';
-    const newAssessment: Assessment = {
-      id: Date.now().toString(),
-      title: assessmentTitle,
-      description: assessmentDescription,
-      courseId: selectedCourse,
-      courseName,
-      questions: [],
-      timeLimit: parseInt(timeLimit),
-      createdAt: new Date().toISOString().split('T')[0]
-    };
+    try {
+      setIsSaving(true);
 
-    setAssessments([...assessments, newAssessment]);
-    resetAssessmentForm();
-    setIsCreateDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Assessment created successfully"
-    });
+      const createData: CreateAssessmentRequest = {
+        courseId: selectedCourse,
+        title: assessmentTitle,
+        description: assessmentDescription,
+        durationMinutes: parseInt(timeLimit)
+      };
+
+      const createdAssessment = await assessmentApi.create(createData);
+      
+      const courseName = courses.find(c => c.id === selectedCourse)?.name || '';
+      const newAssessment: Assessment = {
+        id: createdAssessment.id,
+        title: createdAssessment.title,
+        description: createdAssessment.description,
+        courseId: createdAssessment.courseId,
+        courseName,
+        timeLimit: createdAssessment.durationMinutes,
+        isPublished: createdAssessment.isPublished,
+        questions: [],
+        createdAt: createdAssessment.createdAt
+      };
+
+      setAssessments([...assessments, newAssessment]);
+      resetAssessmentForm();
+      setIsCreateDialogOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Assessment created successfully"
+      });
+    } catch (error) {
+      console.error('Failed to create assessment:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create assessment. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleAddQuestion = () => {
@@ -185,12 +233,38 @@ const AssessmentManagement: React.FC = () => {
     });
   };
 
-  const handleDeleteAssessment = (assessmentId: string) => {
-    setAssessments(assessments.filter(assessment => assessment.id !== assessmentId));
-    toast({
-      title: "Success",
-      description: "Assessment deleted successfully"
-    });
+  const handleDeleteAssessment = async (assessmentId: string, assessmentTitle: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${assessmentTitle}"? This action cannot be undone.`)) {
+      return;
+    }
+
+    try {
+      setDeletingAssessmentId(assessmentId);
+      
+      // Optimistically remove from UI
+      setAssessments(prevAssessments => prevAssessments.filter(a => a.id !== assessmentId));
+      
+      // Make API call
+      await assessmentApi.delete(assessmentId);
+      
+      toast({
+        title: "Success",
+        description: `Assessment "${assessmentTitle}" deleted successfully`
+      });
+    } catch (error) {
+      console.error('Failed to delete assessment:', error);
+      
+      // Restore the assessment list on error
+      await fetchData();
+      
+      toast({
+        title: "Error",
+        description: "Failed to delete assessment. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setDeletingAssessmentId(null);
+    }
   };
 
   const resetAssessmentForm = () => {
@@ -217,6 +291,17 @@ const AssessmentManagement: React.FC = () => {
   const getTotalPoints = (assessment: Assessment) => {
     return assessment.questions.reduce((total, question) => total + question.points, 0);
   };
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading assessments...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -290,10 +375,13 @@ const AssessmentManagement: React.FC = () => {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
-                <Button onClick={handleCreateAssessment}>Create Assessment</Button>
+                <Button onClick={handleCreateAssessment} disabled={isSaving}>
+                  {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Create Assessment
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
@@ -301,23 +389,45 @@ const AssessmentManagement: React.FC = () => {
 
         {/* Assessments Grid */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {assessments.map((assessment) => (
-            <Card key={assessment.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <FileText className="h-8 w-8 text-primary" />
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleDeleteAssessment(assessment.id)}
-                    className="text-destructive hover:text-destructive"
-                  >
-                    <Trash2 className="h-4 w-4" />
+          {assessments.length === 0 ? (
+            <Card className="col-span-full p-12">
+              <div className="text-center space-y-4">
+                <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
+                <div>
+                  <h3 className="text-xl font-semibold mb-2">No Assessments Yet</h3>
+                  <p className="text-muted-foreground mb-4">
+                    Get started by creating your first assessment
+                  </p>
+                  <Button onClick={() => setIsCreateDialogOpen(true)}>
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create Your First Assessment
                   </Button>
                 </div>
-                <CardTitle className="text-xl">{assessment.title}</CardTitle>
-                <CardDescription>{assessment.description}</CardDescription>
-              </CardHeader>
+              </div>
+            </Card>
+          ) : (
+            assessments.map((assessment) => (
+              <Card key={assessment.id} className="hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <FileText className="h-8 w-8 text-primary" />
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteAssessment(assessment.id, assessment.title)}
+                      className="text-destructive hover:text-destructive"
+                      disabled={deletingAssessmentId === assessment.id}
+                    >
+                      {deletingAssessmentId === assessment.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
+                    </Button>
+                  </div>
+                  <CardTitle className="text-xl">{assessment.title}</CardTitle>
+                  <CardDescription>{assessment.description}</CardDescription>
+                </CardHeader>
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary">{assessment.courseName}</Badge>
@@ -378,7 +488,8 @@ const AssessmentManagement: React.FC = () => {
                 </Button>
               </CardContent>
             </Card>
-          ))}
+            ))
+          )}
         </div>
 
         {/* Add Question Dialog */}

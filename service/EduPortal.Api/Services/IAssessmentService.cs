@@ -5,6 +5,7 @@ namespace EduPortal.Api.Services;
 public interface IAssessmentService
 {
     Task<List<AssessmentDto>> GetCourseAssessmentsAsync(string courseId);
+    Task<List<AssessmentDto>> GetTeacherAssessmentsAsync(string teacherId);
     Task<AssessmentDto?> GetAssessmentByIdAsync(string assessmentId);
     Task<List<QuestionDto>> GetAssessmentQuestionsAsync(string assessmentId, bool includeAnswers = false);
     Task<AssessmentDto?> CreateAssessmentAsync(CreateAssessmentRequest request);

@@ -301,6 +301,9 @@ export const courseApi = {
 
 // Assessment APIs
 export const assessmentApi = {
+  getMyTeachingAssessments: () => 
+    apiClient.get<Assessment[]>('/assessments/my-teaching'),
+  
   getAllByCourse: (courseId: string) => 
     apiClient.get<Assessment[]>(`/assessments/course/${courseId}`),
   

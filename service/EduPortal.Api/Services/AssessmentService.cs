@@ -19,6 +19,15 @@ public class AssessmentService : IAssessmentService
             .Where(a => a.CourseId == courseId).ToListAsync())
         .Select(MapToAssessmentDto).ToList();
 
+    public async Task<List<AssessmentDto>> GetTeacherAssessmentsAsync(string teacherId) =>
+        (await _context.Assessments
+            .Include(a => a.Course)
+            .Include(a => a.Questions)
+            .Where(a => a.Course!.TeacherId == teacherId)
+            .OrderByDescending(a => a.CreatedAt)
+            .ToListAsync())
+        .Select(MapToAssessmentDto).ToList();
+
     public async Task<AssessmentDto?> GetAssessmentByIdAsync(string assessmentId)
     {
         var assessment = await _context.Assessments.Include(a => a.Course).Include(a => a.Questions)

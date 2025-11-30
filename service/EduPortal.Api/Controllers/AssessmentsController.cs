@@ -18,6 +18,14 @@ public class AssessmentsController : ControllerBase
         _assessmentService = assessmentService;
     }
 
+    [HttpGet("my-teaching")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> GetMyAssessments()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        return userId == null ? Unauthorized() : Ok(await _assessmentService.GetTeacherAssessmentsAsync(userId));
+    }
+
     [HttpGet("course/{courseId}")]
     public async Task<IActionResult> GetCourseAssessments(string courseId) => Ok(await _assessmentService.GetCourseAssessmentsAsync(courseId));
 
