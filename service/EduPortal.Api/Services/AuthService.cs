@@ -58,6 +58,12 @@ public class AuthService : IAuthService
         return user == null ? null : MapToUserDto(user);
     }
 
+    public async Task<UserDto?> GetCurrentUserAsync(string userId)
+    {
+        var user = await _context.Users.FindAsync(userId);
+        return user == null ? null : MapToUserDto(user);
+    }
+
     private string GenerateJwtToken(User user)
     {
         var secretKey = _configuration["JwtSettings:SecretKey"] ?? "YourSuperSecretKeyForJWTTokenGeneration123456789";
@@ -87,6 +93,7 @@ public class AuthService : IAuthService
         Username = user.Username,
         Name = user.Name,
         Email = user.Email,
-        Role = user.Role.ToString().ToLower()
+        Role = user.Role.ToString().ToLower(),
+        CreatedAt = user.CreatedAt
     };
 }

@@ -40,7 +40,18 @@ public class AuthController : ControllerBase
 
     [HttpGet("me")]
     [Authorize]
-    public IActionResult GetMe()
+    public async Task<IActionResult> GetMe()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null) return Unauthorized();
+        
+        var user = await _authService.GetCurrentUserAsync(userId);
+        return user == null ? NotFound(new { message = "User not found" }) : Ok(user);
+    }
+
+    [HttpGet("debug/me")]
+    [Authorize]
+    public IActionResult DebugMe()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         var username = User.FindFirstValue(ClaimTypes.Name);
