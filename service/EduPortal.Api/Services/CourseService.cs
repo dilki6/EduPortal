@@ -99,6 +99,31 @@ public class CourseService : ICourseService
         return true;
     }
 
+    public async Task<EnrollmentDto?> UpdateProgressAsync(string courseId, string studentId, int progress)
+    {
+        var enrollment = await _context.Enrollments
+            .Include(e => e.Student)
+            .Include(e => e.Course)
+            .FirstOrDefaultAsync(e => e.CourseId == courseId && e.StudentId == studentId);
+
+        if (enrollment == null) return null;
+
+        enrollment.Progress = Math.Clamp(progress, 0, 100);
+        await _context.SaveChangesAsync();
+
+        return new EnrollmentDto
+        {
+            Id = enrollment.Id,
+            StudentId = enrollment.StudentId,
+            StudentName = enrollment.Student?.Name ?? "",
+            StudentEmail = enrollment.Student?.Email ?? "",
+            CourseId = enrollment.CourseId,
+            CourseName = enrollment.Course?.Name ?? "",
+            EnrolledAt = enrollment.EnrolledAt,
+            Progress = enrollment.Progress
+        };
+    }
+
     public async Task<List<EnrollmentDto>> GetCourseEnrollmentsAsync(string courseId) =>
         (await _context.Enrollments.Include(e => e.Student).Include(e => e.Course)
             .Where(e => e.CourseId == courseId).ToListAsync())

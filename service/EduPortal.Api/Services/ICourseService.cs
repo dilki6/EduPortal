@@ -13,6 +13,7 @@ public interface ICourseService
     Task<bool> DeleteCourseAsync(string courseId, string teacherId);
     Task<bool> EnrollStudentAsync(EnrollStudentRequest request);
     Task<bool> UnenrollStudentAsync(string enrollmentId);
+    Task<EnrollmentDto?> UpdateProgressAsync(string courseId, string studentId, int progress);
     Task<List<EnrollmentDto>> GetCourseEnrollmentsAsync(string courseId);
     Task<List<StudentDto>> GetAllStudentsAsync();
 }

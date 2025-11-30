@@ -22,10 +22,24 @@ class ApiClient {
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'An error occurred' }));
-      throw new Error(error.message || `HTTP ${response.status}`);
+      const apiError: any = new Error(error.message || `HTTP ${response.status}`);
+      apiError.status = response.status;
+      apiError.response = { status: response.status };
+      throw apiError;
     }
 
-    return response.json();
+    // Handle 204 No Content responses
+    if (response.status === 204 || response.headers.get('content-length') === '0') {
+      return {} as T;
+    }
+
+    // Check if response has content
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.includes('application/json')) {
+      return response.json();
+    }
+
+    return {} as T;
   }
 
   get<T>(endpoint: string): Promise<T> {

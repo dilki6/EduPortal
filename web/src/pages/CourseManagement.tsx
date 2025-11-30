@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -7,61 +7,80 @@ import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BookOpen, Plus, Users, Edit, Trash2, UserPlus } from 'lucide-react';
+import { BookOpen, Plus, Users, Edit, Trash2, UserPlus, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { courseApi, Course as ApiCourse, EnrollmentWithDetails } from '@/lib/api';
 
 interface Course {
   id: string;
   name: string;
   description: string;
-  enrolledStudents: string[];
+  teacherId: string;
+  teacherName?: string;
+  enrolledStudents: EnrollmentWithDetails[];
   createdAt: string;
-}
-
-interface Student {
-  id: string;
-  name: string;
-  email: string;
 }
 
 const CourseManagement: React.FC = () => {
   const { toast } = useToast();
-  const [courses, setCourses] = useState<Course[]>([
-    {
-      id: '1',
-      name: 'Advanced Mathematics',
-      description: 'Advanced calculus and linear algebra concepts',
-      enrolledStudents: ['2', '3'],
-      createdAt: '2024-01-15'
-    },
-    {
-      id: '2',
-      name: 'Physics Fundamentals',
-      description: 'Basic principles of physics and mechanics',
-      enrolledStudents: ['3'],
-      createdAt: '2024-01-20'
-    }
-  ]);
-
-  const [students] = useState<Student[]>([
-    { id: '2', name: 'Alex Chen', email: 'alex.chen@student.edu' },
-    { id: '3', name: 'Emily Davis', email: 'emily.davis@student.edu' },
-    { id: '4', name: 'John Smith', email: 'john.smith@student.edu' },
-    { id: '5', name: 'Sarah Wilson', email: 'sarah.wilson@student.edu' }
-  ]);
-
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isEnrollDialogOpen, setIsEnrollDialogOpen] = useState(false);
   const [editingCourse, setEditingCourse] = useState<Course | null>(null);
   const [enrollingCourse, setEnrollingCourse] = useState<Course | null>(null);
   const [selectedStudent, setSelectedStudent] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
 
   // Form states
   const [courseName, setCourseName] = useState('');
   const [courseDescription, setCourseDescription] = useState('');
 
-  const handleCreateCourse = () => {
+  // Fetch courses on mount
+  useEffect(() => {
+    fetchCourses();
+  }, []);
+
+  const fetchCourses = async () => {
+    try {
+      setIsLoading(true);
+      const fetchedCourses = await courseApi.getMyTeachingCourses();
+      
+      // Fetch enrollments for each course
+      const coursesWithEnrollments = await Promise.all(
+        fetchedCourses.map(async (course) => {
+          try {
+            const enrollments = await courseApi.getEnrollments(course.id);
+            return {
+              ...course,
+              enrolledStudents: enrollments
+            };
+          } catch (error) {
+            console.error(`Failed to fetch enrollments for course ${course.id}:`, error);
+            return {
+              ...course,
+              enrolledStudents: []
+            };
+          }
+        })
+      );
+      
+      setCourses(coursesWithEnrollments);
+    } catch (error) {
+      console.error('Failed to fetch courses:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load courses. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleCreateCourse = async () => {
     if (!courseName.trim() || !courseDescription.trim()) {
       toast({
         title: "Error",
@@ -71,26 +90,37 @@ const CourseManagement: React.FC = () => {
       return;
     }
 
-    const newCourse: Course = {
-      id: Date.now().toString(),
-      name: courseName,
-      description: courseDescription,
-      enrolledStudents: [],
-      createdAt: new Date().toISOString().split('T')[0]
-    };
+    try {
+      setIsSaving(true);
+      await courseApi.create({
+        name: courseName,
+        description: courseDescription
+      });
 
-    setCourses([...courses, newCourse]);
-    setCourseName('');
-    setCourseDescription('');
-    setIsCreateDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Course created successfully"
-    });
+      toast({
+        title: "Success",
+        description: "Course created successfully"
+      });
+
+      setCourseName('');
+      setCourseDescription('');
+      setIsCreateDialogOpen(false);
+      
+      // Refresh courses list
+      await fetchCourses();
+    } catch (error) {
+      console.error('Failed to create course:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create course. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleEditCourse = () => {
+  const handleEditCourse = async () => {
     if (!courseName.trim() || !courseDescription.trim() || !editingCourse) {
       toast({
         title: "Error",
@@ -100,55 +130,80 @@ const CourseManagement: React.FC = () => {
       return;
     }
 
-    setCourses(courses.map(course => 
-      course.id === editingCourse.id 
-        ? { ...course, name: courseName, description: courseDescription }
-        : course
-    ));
+    try {
+      setIsSaving(true);
+      await courseApi.update(editingCourse.id, {
+        name: courseName,
+        description: courseDescription
+      });
 
-    setCourseName('');
-    setCourseDescription('');
-    setEditingCourse(null);
-    setIsEditDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Course updated successfully"
-    });
-  };
+      toast({
+        title: "Success",
+        description: "Course updated successfully"
+      });
 
-  const handleDeleteCourse = (courseId: string) => {
-    setCourses(courses.filter(course => course.id !== courseId));
-    toast({
-      title: "Success",
-      description: "Course deleted successfully"
-    });
-  };
-
-  const handleEnrollStudent = () => {
-    if (!selectedStudent || !enrollingCourse) {
+      setCourseName('');
+      setCourseDescription('');
+      setEditingCourse(null);
+      setIsEditDialogOpen(false);
+      
+      // Refresh courses list
+      await fetchCourses();
+    } catch (error) {
+      console.error('Failed to update course:', error);
       toast({
         title: "Error",
-        description: "Please select a student",
+        description: "Failed to update course. Please try again.",
         variant: "destructive"
       });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string, courseName: string) => {
+    if (!window.confirm(`Are you sure you want to delete "${courseName}"? This action cannot be undone.`)) {
       return;
     }
 
-    setCourses(courses.map(course => 
-      course.id === enrollingCourse.id 
-        ? { ...course, enrolledStudents: [...course.enrolledStudents, selectedStudent] }
-        : course
-    ));
+    try {
+      setDeletingCourseId(courseId);
+      
+      // Optimistically remove from UI
+      setCourses(prevCourses => prevCourses.filter(c => c.id !== courseId));
+      
+      // Make API call
+      await courseApi.delete(courseId);
+      
+      toast({
+        title: "Success",
+        description: `Course "${courseName}" deleted successfully`
+      });
+    } catch (error) {
+      console.error('Failed to delete course:', error);
+      
+      // Restore the course list on error
+      await fetchCourses();
+      
+      toast({
+        title: "Error",
+        description: "Failed to delete course. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setDeletingCourseId(null);
+    }
+  };
 
-    setSelectedStudent('');
-    setEnrollingCourse(null);
-    setIsEnrollDialogOpen(false);
-    
+  const handleEnrollStudent = () => {
+    // This would need a separate API endpoint to enroll a specific student
+    // For now, we'll show a message that this feature needs backend implementation
     toast({
-      title: "Success",
-      description: "Student enrolled successfully"
+      title: "Feature Coming Soon",
+      description: "Student enrollment will be available once the backend endpoint is implemented.",
+      variant: "default"
     });
+    setIsEnrollDialogOpen(false);
   };
 
   const openEditDialog = (course: Course) => {
@@ -163,14 +218,16 @@ const CourseManagement: React.FC = () => {
     setIsEnrollDialogOpen(true);
   };
 
-  const getStudentName = (studentId: string) => {
-    const student = students.find(s => s.id === studentId);
-    return student ? student.name : 'Unknown Student';
-  };
-
-  const getAvailableStudents = (course: Course) => {
-    return students.filter(student => !course.enrolledStudents.includes(student.id));
-  };
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading courses...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -218,18 +275,38 @@ const CourseManagement: React.FC = () => {
                 </div>
               </div>
               <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
+                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isSaving}>
                   Cancel
                 </Button>
-                <Button onClick={handleCreateCourse}>Create Course</Button>
+                <Button onClick={handleCreateCourse} disabled={isSaving}>
+                  {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                  Create Course
+                </Button>
               </DialogFooter>
             </DialogContent>
           </Dialog>
         </div>
 
         {/* Courses Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {courses.map((course) => (
+        {courses.length === 0 ? (
+          <Card className="p-12">
+            <div className="text-center space-y-4">
+              <BookOpen className="h-16 w-16 mx-auto text-muted-foreground" />
+              <div>
+                <h3 className="text-xl font-semibold mb-2">No Courses Yet</h3>
+                <p className="text-muted-foreground mb-4">
+                  Get started by creating your first course
+                </p>
+                <Button onClick={() => setIsCreateDialogOpen(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Create Your First Course
+                </Button>
+              </div>
+            </div>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {courses.map((course) => (
             <Card key={course.id} className="hover:shadow-lg transition-shadow">
               <CardHeader>
                 <div className="flex items-start justify-between">
@@ -245,10 +322,15 @@ const CourseManagement: React.FC = () => {
                     <Button
                       variant="ghost"
                       size="icon"
-                      onClick={() => handleDeleteCourse(course.id)}
+                      onClick={() => handleDeleteCourse(course.id, course.name)}
                       className="text-destructive hover:text-destructive"
+                      disabled={deletingCourseId === course.id}
                     >
-                      <Trash2 className="h-4 w-4" />
+                      {deletingCourseId === course.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin" />
+                      ) : (
+                        <Trash2 className="h-4 w-4" />
+                      )}
                     </Button>
                   </div>
                 </div>
@@ -272,9 +354,9 @@ const CourseManagement: React.FC = () => {
                   <div>
                     <p className="text-sm font-medium mb-2">Enrolled Students:</p>
                     <div className="space-y-1">
-                      {course.enrolledStudents.slice(0, 3).map((studentId) => (
-                        <Badge key={studentId} variant="outline" className="text-xs">
-                          {getStudentName(studentId)}
+                      {course.enrolledStudents.slice(0, 3).map((enrollment) => (
+                        <Badge key={enrollment.id} variant="outline" className="text-xs">
+                          {enrollment.studentName}
                         </Badge>
                       ))}
                       {course.enrolledStudents.length > 3 && (
@@ -291,15 +373,15 @@ const CourseManagement: React.FC = () => {
                   size="sm"
                   className="w-full"
                   onClick={() => openEnrollDialog(course)}
-                  disabled={getAvailableStudents(course).length === 0}
                 >
                   <UserPlus className="h-4 w-4 mr-2" />
-                  Enroll Student
+                  Manage Enrollments
                 </Button>
               </CardContent>
             </Card>
           ))}
-        </div>
+          </div>
+        )}
 
         {/* Edit Course Dialog */}
         <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
@@ -332,10 +414,13 @@ const CourseManagement: React.FC = () => {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleEditCourse}>Update Course</Button>
+              <Button onClick={handleEditCourse} disabled={isSaving}>
+                {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Update Course
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>
@@ -344,33 +429,36 @@ const CourseManagement: React.FC = () => {
         <Dialog open={isEnrollDialogOpen} onOpenChange={setIsEnrollDialogOpen}>
           <DialogContent>
             <DialogHeader>
-              <DialogTitle>Enroll Student</DialogTitle>
+              <DialogTitle>Course Enrollments</DialogTitle>
               <DialogDescription>
-                Add a student to {enrollingCourse?.name}
+                Students enrolled in {enrollingCourse?.name}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
-              <div>
-                <Label htmlFor="student-select">Select Student</Label>
-                <Select value={selectedStudent} onValueChange={setSelectedStudent}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Choose a student to enroll" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {enrollingCourse && getAvailableStudents(enrollingCourse).map((student) => (
-                      <SelectItem key={student.id} value={student.id}>
-                        {student.name} ({student.email})
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+              {enrollingCourse && enrollingCourse.enrolledStudents.length > 0 ? (
+                <div className="space-y-2">
+                  {enrollingCourse.enrolledStudents.map((enrollment) => (
+                    <div key={enrollment.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div>
+                        <p className="font-medium">{enrollment.studentName}</p>
+                        <p className="text-sm text-muted-foreground">{enrollment.studentEmail}</p>
+                      </div>
+                      <Badge variant="secondary">
+                        {enrollment.progress}% Complete
+                      </Badge>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-center text-muted-foreground py-8">
+                  No students enrolled yet
+                </p>
+              )}
             </div>
             <DialogFooter>
               <Button variant="outline" onClick={() => setIsEnrollDialogOpen(false)}>
-                Cancel
+                Close
               </Button>
-              <Button onClick={handleEnrollStudent}>Enroll Student</Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

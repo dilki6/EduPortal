@@ -21,15 +21,17 @@ public class CoursesController : ControllerBase
     [HttpGet]
     public async Task<IActionResult> GetAllCourses() => Ok(await _courseService.GetAllCoursesAsync());
 
-    [HttpGet("teacher")]
-    public async Task<IActionResult> GetTeacherCourses()
+    [HttpGet("my-teaching")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> GetMyTeachingCourses()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return userId == null ? Unauthorized() : Ok(await _courseService.GetTeacherCoursesAsync(userId));
     }
 
-    [HttpGet("student")]
-    public async Task<IActionResult> GetStudentCourses()
+    [HttpGet("my-enrolled")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> GetMyEnrolledCourses()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
         return userId == null ? Unauthorized() : Ok(await _courseService.GetStudentCoursesAsync(userId));
@@ -91,6 +93,17 @@ public class CoursesController : ControllerBase
 
     [HttpGet("{id}/enrollments")]
     public async Task<IActionResult> GetCourseEnrollments(string id) => Ok(await _courseService.GetCourseEnrollmentsAsync(id));
+
+    [HttpPut("{id}/progress")]
+    [Authorize(Roles = "Student")]
+    public async Task<IActionResult> UpdateProgress(string id, [FromBody] UpdateProgressRequest request)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null) return Unauthorized();
+        
+        var result = await _courseService.UpdateProgressAsync(id, userId, request.Progress);
+        return result != null ? Ok(result) : NotFound(new { message = "Enrollment not found" });
+    }
 
     [HttpGet("students/all")]
     [Authorize(Roles = "Teacher")]
