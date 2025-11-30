@@ -335,6 +335,9 @@ export const assessmentApi = {
   addQuestion: (assessmentId: string, data: CreateQuestionRequest) => 
     apiClient.post<Question>(`/assessments/${assessmentId}/questions`, data),
   
+  updateQuestion: (questionId: string, data: CreateQuestionRequest) => 
+    apiClient.put<Question>(`/assessments/questions/${questionId}`, data),
+  
   deleteQuestion: (questionId: string) => 
     apiClient.delete<void>(`/assessments/questions/${questionId}`),
   

@@ -169,6 +169,60 @@ public class AssessmentService : IAssessmentService
         };
     }
 
+    public async Task<QuestionDto?> UpdateQuestionAsync(string questionId, CreateQuestionRequest request)
+    {
+        var question = await _context.Questions.Include(q => q.Options)
+            .FirstOrDefaultAsync(q => q.Id == questionId);
+        
+        if (question == null) return null;
+
+        // Update question properties
+        question.Text = request.Text;
+        question.Type = Enum.Parse<QuestionType>(request.Type);
+        question.Points = request.Points;
+        question.ExpectedAnswer = request.ExpectedAnswer;
+
+        // Remove old options
+        _context.QuestionOptions.RemoveRange(question.Options);
+        
+        // Add new options
+        for (int i = 0; i < request.Options.Count; i++)
+        {
+            var optionRequest = request.Options[i];
+            var option = new QuestionOption
+            {
+                QuestionId = question.Id,
+                Text = optionRequest.Text,
+                IsCorrect = optionRequest.IsCorrect,
+                Order = i + 1
+            };
+            _context.QuestionOptions.Add(option);
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Return updated question
+        var updatedQuestion = await _context.Questions.Include(q => q.Options)
+            .FirstOrDefaultAsync(q => q.Id == questionId);
+
+        return updatedQuestion == null ? null : new QuestionDto
+        {
+            Id = updatedQuestion.Id,
+            Text = updatedQuestion.Text,
+            Type = updatedQuestion.Type.ToString(),
+            Points = updatedQuestion.Points,
+            Order = updatedQuestion.Order,
+            ExpectedAnswer = updatedQuestion.ExpectedAnswer,
+            Options = updatedQuestion.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionDto
+            {
+                Id = o.Id,
+                Text = o.Text,
+                IsCorrect = o.IsCorrect,
+                Order = o.Order
+            }).ToList()
+        };
+    }
+
     public async Task<bool> DeleteQuestionAsync(string questionId)
     {
         var question = await _context.Questions.FindAsync(questionId);

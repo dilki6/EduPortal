@@ -43,6 +43,7 @@ const AssessmentManagement: React.FC = () => {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isQuestionDialogOpen, setIsQuestionDialogOpen] = useState(false);
   const [currentAssessment, setCurrentAssessment] = useState<Assessment | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState<Question | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingAssessmentId, setDeletingAssessmentId] = useState<string | null>(null);
   const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
@@ -63,6 +64,15 @@ const AssessmentManagement: React.FC = () => {
 
   // Fetch courses and assessments on mount
   useEffect(() => {
+    // Debug: Check authentication
+    const token = localStorage.getItem('token');
+    const user = localStorage.getItem('user');
+    console.log('🔐 Auth Debug:', {
+      hasToken: !!token,
+      tokenPreview: token ? `${token.substring(0, 20)}...` : 'No token',
+      user: user ? JSON.parse(user) : 'No user'
+    });
+    
     fetchData();
   }, []);
 
@@ -116,13 +126,32 @@ const AssessmentManagement: React.FC = () => {
       );
       
       setAssessments(assessmentsWithQuestions);
-    } catch (error) {
-      console.error('Failed to fetch data:', error);
-      toast({
-        title: "Error",
-        description: "Failed to load courses and assessments",
-        variant: "destructive"
+    } catch (error: any) {
+      console.error('❌ Failed to fetch data:', error);
+      console.error('Error details:', {
+        status: error?.status || error?.response?.status,
+        message: error?.message,
+        fullError: error
       });
+      
+      // Check if it's a 401 error
+      if (error?.status === 401 || error?.response?.status === 401) {
+        toast({
+          title: "Authentication Error",
+          description: "Your session has expired. Please log in again.",
+          variant: "destructive"
+        });
+        // Redirect to login after a short delay
+        setTimeout(() => {
+          window.location.href = '/login';
+        }, 2000);
+      } else {
+        toast({
+          title: "Error",
+          description: "Failed to load courses and assessments",
+          variant: "destructive"
+        });
+      }
     } finally {
       setIsLoading(false);
     }
@@ -274,6 +303,103 @@ const AssessmentManagement: React.FC = () => {
     }
   };
 
+  const handleUpdateQuestion = async () => {
+    if (!questionText.trim() || !points || !currentAssessment || !editingQuestion) {
+      toast({
+        title: "Error",
+        description: "Please fill in required fields",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    if (questionType === 'mcq') {
+      const validOptions = options.filter(opt => opt.trim());
+      if (validOptions.length < 2 || !correctAnswer) {
+        toast({
+          title: "Error",
+          description: "MCQ questions need at least 2 options and a correct answer",
+          variant: "destructive"
+        });
+        return;
+      }
+    }
+
+    if (questionType === 'text' && !modelAnswer.trim()) {
+      toast({
+        title: "Error",
+        description: "Text questions require a model answer",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const questionData: CreateQuestionRequest = {
+        text: questionText,
+        type: questionType === 'mcq' ? 'MultipleChoice' : 'ShortAnswer',
+        points: parseInt(points),
+        expectedAnswer: questionType === 'text' ? modelAnswer : undefined,
+        options: questionType === 'mcq' 
+          ? options.filter(opt => opt.trim()).map(opt => {
+              return {
+                text: opt,
+                isCorrect: opt === correctAnswer
+              };
+            })
+          : []
+      };
+
+      const updatedQuestion = await assessmentApi.updateQuestion(editingQuestion.id, questionData);
+
+      const newQuestion: Question = {
+        id: updatedQuestion.id,
+        type: questionType,
+        question: updatedQuestion.text,
+        options: questionType === 'mcq' ? (updatedQuestion.options?.map(o => o.text) || []) : undefined,
+        correctAnswer: questionType === 'mcq' ? updatedQuestion.options?.find(o => o.isCorrect)?.text : undefined,
+        modelAnswer: questionType === 'text' ? modelAnswer : undefined,
+        points: updatedQuestion.points
+      };
+
+      const updatedAssessments = assessments.map(assessment => {
+        if (assessment.id === currentAssessment.id) {
+          return {
+            ...assessment,
+            questions: assessment.questions.map(q => {
+              if (q.id === editingQuestion.id) {
+                return newQuestion;
+              }
+              return q;
+            })
+          };
+        }
+        return assessment;
+      });
+      setAssessments(updatedAssessments);
+
+      resetQuestionForm();
+      setEditingQuestion(null);
+      setIsQuestionDialogOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Question updated successfully"
+      });
+    } catch (error) {
+      console.error('Failed to update question:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update question. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
   const handleDeleteQuestion = async (assessmentId: string, questionId: string) => {
     try {
       setDeletingQuestionId(questionId);
@@ -356,10 +482,42 @@ const AssessmentManagement: React.FC = () => {
     setCorrectAnswer('');
     setModelAnswer('');
     setPoints('');
+    setEditingQuestion(null);
   };
 
   const openQuestionDialog = (assessment: Assessment) => {
+    resetQuestionForm();
     setCurrentAssessment(assessment);
+    setIsQuestionDialogOpen(true);
+  };
+
+  const openEditQuestionDialog = (assessment: Assessment, question: Question) => {
+    setCurrentAssessment(assessment);
+    setEditingQuestion(question);
+    
+    // Populate form with existing question data
+    setQuestionText(question.question);
+    setQuestionType(question.type);
+    setPoints(question.points.toString());
+    
+    if (question.type === 'mcq') {
+      // Populate options for MCQ
+      const questionOptions = question.options || [];
+      setOptions([
+        questionOptions[0] || '',
+        questionOptions[1] || '',
+        questionOptions[2] || '',
+        questionOptions[3] || ''
+      ]);
+      setCorrectAnswer(question.correctAnswer || '');
+      setModelAnswer('');
+    } else {
+      // Populate model answer for text questions
+      setOptions(['', '', '', '']);
+      setCorrectAnswer('');
+      setModelAnswer(question.modelAnswer || '');
+    }
+    
     setIsQuestionDialogOpen(true);
   };
 
@@ -538,19 +696,29 @@ const AssessmentManagement: React.FC = () => {
                               </Badge>
                             </div>
                           </div>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteQuestion(assessment.id, question.id)}
-                            className="text-destructive hover:text-destructive ml-2"
-                            disabled={deletingQuestionId === question.id}
-                          >
-                            {deletingQuestionId === question.id ? (
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                            ) : (
-                              <Trash2 className="h-3 w-3" />
-                            )}
-                          </Button>
+                          <div className="flex gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => openEditQuestionDialog(assessment, question)}
+                              className="text-muted-foreground hover:text-primary ml-2"
+                            >
+                              <Edit className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleDeleteQuestion(assessment.id, question.id)}
+                              className="text-destructive hover:text-destructive"
+                              disabled={deletingQuestionId === question.id}
+                            >
+                              {deletingQuestionId === question.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <Trash2 className="h-3 w-3" />
+                              )}
+                            </Button>
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -572,13 +740,18 @@ const AssessmentManagement: React.FC = () => {
           )}
         </div>
 
-        {/* Add Question Dialog */}
-        <Dialog open={isQuestionDialogOpen} onOpenChange={setIsQuestionDialogOpen}>
+        {/* Add/Edit Question Dialog */}
+        <Dialog open={isQuestionDialogOpen} onOpenChange={(open) => {
+          setIsQuestionDialogOpen(open);
+          if (!open) {
+            resetQuestionForm();
+          }
+        }}>
           <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
             <DialogHeader>
-              <DialogTitle>Add Question</DialogTitle>
+              <DialogTitle>{editingQuestion ? 'Edit Question' : 'Add Question'}</DialogTitle>
               <DialogDescription>
-                Add a new question to {currentAssessment?.title}
+                {editingQuestion ? 'Update the question details' : `Add a new question to ${currentAssessment?.title}`}
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4">
@@ -666,12 +839,15 @@ const AssessmentManagement: React.FC = () => {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsQuestionDialogOpen(false)} disabled={isSaving}>
+              <Button variant="outline" onClick={() => {
+                setIsQuestionDialogOpen(false);
+                resetQuestionForm();
+              }} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleAddQuestion} disabled={isSaving}>
+              <Button onClick={editingQuestion ? handleUpdateQuestion : handleAddQuestion} disabled={isSaving}>
                 {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Add Question
+                {editingQuestion ? 'Update Question' : 'Add Question'}
               </Button>
             </DialogFooter>
           </DialogContent>

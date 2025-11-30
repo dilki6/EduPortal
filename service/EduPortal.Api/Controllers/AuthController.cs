@@ -1,6 +1,8 @@
 using EduPortal.Api.DTOs;
 using EduPortal.Api.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Security.Claims;
 
 namespace EduPortal.Api.Controllers;
 
@@ -34,5 +36,23 @@ public class AuthController : ControllerBase
     {
         var user = await _authService.GetUserByIdAsync(userId);
         return user == null ? NotFound(new { message = "User not found" }) : Ok(user);
+    }
+
+    [HttpGet("me")]
+    [Authorize]
+    public IActionResult GetMe()
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var username = User.FindFirstValue(ClaimTypes.Name);
+        var role = User.FindFirstValue(ClaimTypes.Role);
+        
+        return Ok(new
+        {
+            userId,
+            username,
+            role,
+            claims = User.Claims.Select(c => new { c.Type, c.Value }).ToList(),
+            isAuthenticated = User.Identity?.IsAuthenticated ?? false
+        });
     }
 }
