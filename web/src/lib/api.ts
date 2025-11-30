@@ -149,6 +149,18 @@ export interface EnrollmentWithDetails {
   enrolledAt: string;
 }
 
+export interface EnrollStudentRequest {
+  studentId: string;
+  courseId: string;
+}
+
+export interface StudentDto {
+  id: string;
+  name: string;
+  email: string;
+  username: string;
+}
+
 export interface Assessment {
   id: string;
   courseId: string;
@@ -271,14 +283,20 @@ export const courseApi = {
   getMyEnrolledCourses: () => 
     apiClient.get<Course[]>('/courses/my-enrolled'),
   
-  enroll: (courseId: string) => 
-    apiClient.post<Enrollment>(`/courses/${courseId}/enroll`),
+  enroll: (data: EnrollStudentRequest) => 
+    apiClient.post<{ message: string }>('/courses/enroll', data),
+  
+  unenroll: (enrollmentId: string) => 
+    apiClient.delete<void>(`/courses/enroll/${enrollmentId}`),
   
   updateProgress: (courseId: string, progress: number) => 
     apiClient.put<Enrollment>(`/courses/${courseId}/progress`, { progress }),
   
   getEnrollments: (courseId: string) => 
     apiClient.get<EnrollmentWithDetails[]>(`/courses/${courseId}/enrollments`),
+  
+  getAllStudents: () => 
+    apiClient.get<StudentDto[]>('/courses/students/all'),
 };
 
 // Assessment APIs

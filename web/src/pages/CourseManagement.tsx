@@ -6,10 +6,12 @@ import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BookOpen, Plus, Users, Edit, Trash2, UserPlus, Loader2 } from 'lucide-react';
+import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { BookOpen, Plus, Users, Edit, Trash2, UserPlus, Loader2, Check, ChevronsUpDown, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { courseApi, Course as ApiCourse, EnrollmentWithDetails } from '@/lib/api';
+import { courseApi, Course as ApiCourse, EnrollmentWithDetails, StudentDto } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
 interface Course {
   id: string;
@@ -33,6 +35,11 @@ const CourseManagement: React.FC = () => {
   const [selectedStudent, setSelectedStudent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
+  const [allStudents, setAllStudents] = useState<StudentDto[]>([]);
+  const [isLoadingStudents, setIsLoadingStudents] = useState(false);
+  const [isEnrolling, setIsEnrolling] = useState(false);
+  const [openCombobox, setOpenCombobox] = useState(false);
+  const [unenrollingId, setUnenrollingId] = useState<string | null>(null);
 
   // Form states
   const [courseName, setCourseName] = useState('');
@@ -48,17 +55,26 @@ const CourseManagement: React.FC = () => {
       setIsLoading(true);
       const fetchedCourses = await courseApi.getMyTeachingCourses();
       
+      console.log(`Fetched ${fetchedCourses.length} courses, now fetching enrollments...`);
+      
       // Fetch enrollments for each course
       const coursesWithEnrollments = await Promise.all(
         fetchedCourses.map(async (course) => {
           try {
+            console.log(`Fetching enrollments for course: ${course.name} (${course.id})`);
             const enrollments = await courseApi.getEnrollments(course.id);
+            console.log(`✓ Course "${course.name}": ${enrollments.length} enrollments`);
             return {
               ...course,
               enrolledStudents: enrollments
             };
           } catch (error) {
-            console.error(`Failed to fetch enrollments for course ${course.id}:`, error);
+            console.error(`✗ Failed to fetch enrollments for course "${course.name}" (${course.id}):`, error);
+            toast({
+              title: "Warning",
+              description: `Could not load enrollments for "${course.name}"`,
+              variant: "default"
+            });
             return {
               ...course,
               enrolledStudents: []
@@ -67,6 +83,7 @@ const CourseManagement: React.FC = () => {
         })
       );
       
+      console.log('All courses with enrollments loaded:', coursesWithEnrollments);
       setCourses(coursesWithEnrollments);
     } catch (error) {
       console.error('Failed to fetch courses:', error);
@@ -195,15 +212,146 @@ const CourseManagement: React.FC = () => {
     }
   };
 
-  const handleEnrollStudent = () => {
-    // This would need a separate API endpoint to enroll a specific student
-    // For now, we'll show a message that this feature needs backend implementation
-    toast({
-      title: "Feature Coming Soon",
-      description: "Student enrollment will be available once the backend endpoint is implemented.",
-      variant: "default"
-    });
-    setIsEnrollDialogOpen(false);
+  const handleEnrollStudent = async () => {
+    if (!selectedStudent || !enrollingCourse) {
+      toast({
+        title: "Error",
+        description: "Please select a student",
+        variant: "destructive"
+      });
+      return;
+    }
+
+    try {
+      setIsEnrolling(true);
+      
+      await courseApi.enroll({
+        studentId: selectedStudent,
+        courseId: enrollingCourse.id
+      });
+
+      toast({
+        title: "Success",
+        description: "Student enrolled successfully"
+      });
+
+      setSelectedStudent('');
+      setOpenCombobox(false);
+      
+      // Fetch updated enrollments for this specific course
+      const updatedEnrollments = await courseApi.getEnrollments(enrollingCourse.id);
+      
+      // Update the enrollingCourse state with new enrollments
+      setEnrollingCourse({
+        ...enrollingCourse,
+        enrolledStudents: updatedEnrollments
+      });
+      
+      // Update the courses list
+      setCourses(prevCourses => 
+        prevCourses.map(c => 
+          c.id === enrollingCourse.id 
+            ? { ...c, enrolledStudents: updatedEnrollments }
+            : c
+        )
+      );
+    } catch (error) {
+      console.error('Failed to enroll student:', error);
+      toast({
+        title: "Error",
+        description: "Failed to enroll student. Student may already be enrolled.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsEnrolling(false);
+    }
+  };
+
+  const handleUnenrollStudent = async (enrollmentId: string, studentName: string) => {
+    if (!window.confirm(`Are you sure you want to unenroll ${studentName}?`)) {
+      return;
+    }
+
+    if (!enrollingCourse) return;
+
+    try {
+      setUnenrollingId(enrollmentId);
+      
+      // Optimistically update both enrollingCourse and courses list
+      const updatedEnrollments = enrollingCourse.enrolledStudents.filter(e => e.id !== enrollmentId);
+      
+      setEnrollingCourse({
+        ...enrollingCourse,
+        enrolledStudents: updatedEnrollments
+      });
+      
+      setCourses(prevCourses => 
+        prevCourses.map(c => 
+          c.id === enrollingCourse.id 
+            ? { ...c, enrolledStudents: updatedEnrollments }
+            : c
+        )
+      );
+      
+      await courseApi.unenroll(enrollmentId);
+      
+      toast({
+        title: "Success",
+        description: `${studentName} unenrolled successfully`
+      });
+    } catch (error) {
+      console.error('Failed to unenroll student:', error);
+      
+      // Restore on error by fetching fresh data
+      try {
+        const freshEnrollments = await courseApi.getEnrollments(enrollingCourse.id);
+        setEnrollingCourse({
+          ...enrollingCourse,
+          enrolledStudents: freshEnrollments
+        });
+        setCourses(prevCourses => 
+          prevCourses.map(c => 
+            c.id === enrollingCourse.id 
+              ? { ...c, enrolledStudents: freshEnrollments }
+              : c
+          )
+        );
+      } catch (fetchError) {
+        console.error('Failed to restore enrollments:', fetchError);
+      }
+      
+      toast({
+        title: "Error",
+        description: "Failed to unenroll student. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setUnenrollingId(null);
+    }
+  };
+
+  const fetchAllStudents = async () => {
+    try {
+      setIsLoadingStudents(true);
+      const students = await courseApi.getAllStudents();
+      setAllStudents(students);
+    } catch (error) {
+      console.error('Failed to fetch students:', error);
+      toast({
+        title: "Error",
+        description: "Failed to load students. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoadingStudents(false);
+    }
+  };
+
+  const getAvailableStudents = () => {
+    if (!enrollingCourse) return [];
+    return allStudents.filter(student => 
+      !enrollingCourse.enrolledStudents.some(e => e.studentId === student.id)
+    );
   };
 
   const openEditDialog = (course: Course) => {
@@ -215,7 +363,17 @@ const CourseManagement: React.FC = () => {
 
   const openEnrollDialog = (course: Course) => {
     setEnrollingCourse(course);
+    setSelectedStudent('');
+    setOpenCombobox(false);
     setIsEnrollDialogOpen(true);
+    // Fetch all students when dialog opens
+    fetchAllStudents();
+  };
+
+  const closeEnrollDialog = () => {
+    setIsEnrollDialogOpen(false);
+    setSelectedStudent('');
+    setOpenCombobox(false);
   };
 
   if (isLoading) {
@@ -426,37 +584,136 @@ const CourseManagement: React.FC = () => {
         </Dialog>
 
         {/* Enroll Student Dialog */}
-        <Dialog open={isEnrollDialogOpen} onOpenChange={setIsEnrollDialogOpen}>
-          <DialogContent>
+        <Dialog open={isEnrollDialogOpen} onOpenChange={(open) => !open && closeEnrollDialog()}>
+          <DialogContent className="max-w-2xl max-h-[80vh]">
             <DialogHeader>
               <DialogTitle>Course Enrollments</DialogTitle>
               <DialogDescription>
-                Students enrolled in {enrollingCourse?.name}
+                Manage students enrolled in {enrollingCourse?.name}
               </DialogDescription>
             </DialogHeader>
-            <div className="space-y-4">
-              {enrollingCourse && enrollingCourse.enrolledStudents.length > 0 ? (
-                <div className="space-y-2">
-                  {enrollingCourse.enrolledStudents.map((enrollment) => (
-                    <div key={enrollment.id} className="flex items-center justify-between p-3 border rounded-lg">
-                      <div>
-                        <p className="font-medium">{enrollment.studentName}</p>
-                        <p className="text-sm text-muted-foreground">{enrollment.studentEmail}</p>
-                      </div>
-                      <Badge variant="secondary">
-                        {enrollment.progress}% Complete
-                      </Badge>
-                    </div>
-                  ))}
+            
+            <div className="space-y-6">
+              {/* Enroll New Student Section */}
+              <div className="space-y-3 pb-4 border-b">
+                <h3 className="text-sm font-semibold">Enroll New Student</h3>
+                <div className="flex gap-2">
+                  <div className="flex-1">
+                    <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          role="combobox"
+                          aria-expanded={openCombobox}
+                          className="w-full justify-between"
+                          disabled={isLoadingStudents}
+                        >
+                          {selectedStudent
+                            ? getAvailableStudents().find((student) => student.id === selectedStudent)?.name
+                            : isLoadingStudents 
+                              ? "Loading students..." 
+                              : "Search and select a student..."}
+                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-[400px] p-0">
+                        <Command>
+                          <CommandInput placeholder="Search student by name or email..." />
+                          <CommandList>
+                            <CommandEmpty>No student found.</CommandEmpty>
+                            <CommandGroup>
+                              {getAvailableStudents().map((student) => (
+                                <CommandItem
+                                  key={student.id}
+                                  value={`${student.name} ${student.email}`}
+                                  onSelect={() => {
+                                    setSelectedStudent(student.id);
+                                    setOpenCombobox(false);
+                                  }}
+                                  className="hover:bg-primary/10 cursor-pointer"
+                                >
+                                  <Check
+                                    className={cn(
+                                      "mr-2 h-4 w-4",
+                                      selectedStudent === student.id ? "opacity-100" : "opacity-0"
+                                    )}
+                                  />
+                                  <div className="flex flex-col">
+                                    <span className="font-medium">{student.name}</span>
+                                    <span className="text-xs text-muted-foreground">{student.email}</span>
+                                  </div>
+                                </CommandItem>
+                              ))}
+                              {getAvailableStudents().length === 0 && !isLoadingStudents && (
+                                <CommandItem disabled>
+                                  All students are already enrolled
+                                </CommandItem>
+                              )}
+                            </CommandGroup>
+                          </CommandList>
+                        </Command>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                  <Button 
+                    onClick={handleEnrollStudent} 
+                    disabled={!selectedStudent || isEnrolling || isLoadingStudents}
+                  >
+                    {isEnrolling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                    Enroll
+                  </Button>
                 </div>
-              ) : (
-                <p className="text-center text-muted-foreground py-8">
-                  No students enrolled yet
-                </p>
-              )}
+              </div>
+
+              {/* Enrolled Students List */}
+              <div className="space-y-3">
+                <h3 className="text-sm font-semibold">
+                  Enrolled Students ({enrollingCourse?.enrolledStudents.length || 0})
+                </h3>
+                
+                {enrollingCourse && enrollingCourse.enrolledStudents.length > 0 ? (
+                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                    {enrollingCourse.enrolledStudents.map((enrollment) => (
+                      <div key={enrollment.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg hover:bg-primary/5 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <p className="font-medium truncate">{enrollment.studentName}</p>
+                          <p className="text-sm text-muted-foreground truncate">{enrollment.studentEmail}</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <Badge variant="secondary">
+                            {enrollment.progress}% Complete
+                          </Badge>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleUnenrollStudent(enrollment.id, enrollment.studentName)}
+                            disabled={unenrollingId === enrollment.id}
+                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
+                          >
+                            {unenrollingId === enrollment.id ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <X className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-center py-8 border rounded-lg bg-muted/50">
+                    <Users className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
+                    <p className="text-muted-foreground">No students enrolled yet</p>
+                    <p className="text-sm text-muted-foreground mt-1">
+                      Use the form above to enroll your first student
+                    </p>
+                  </div>
+                )}
+              </div>
             </div>
+
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEnrollDialogOpen(false)}>
+              <Button variant="outline" onClick={closeEnrollDialog}>
                 Close
               </Button>
             </DialogFooter>
