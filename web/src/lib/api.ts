@@ -58,8 +58,8 @@ export const apiClient = new ApiClient();
 // ==================== TYPE DEFINITIONS ====================
 
 export enum UserRole {
-  Student = 0,
-  Teacher = 1
+  Student = 'student',
+  Teacher = 'teacher'
 }
 
 export enum QuestionType {

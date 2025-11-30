@@ -37,7 +37,7 @@ const SESSION_TIMEOUT = 24 * 60 * 60 * 1000;
 const convertApiUser = (apiUser: ApiUser): User => ({
   id: apiUser.id,
   username: apiUser.username,
-  role: apiUser.role,
+  role: apiUser.role === ApiUserRole.Teacher ? 'teacher' : 'student',
   name: apiUser.name,
   email: apiUser.email,
 });
@@ -132,17 +132,25 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           setUser(validatedUser);
           setIsAuthenticated(true);
           localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(validatedUser));
+          localStorage.setItem(STORAGE_KEYS.ROLE, validatedUser.role);
           localStorage.setItem(STORAGE_KEYS.AUTH_STATUS, 'true');
           updateLastActivity();
           console.log('✅ Token validated, user updated:', validatedUser);
         })
         .catch((error) => {
-          console.error('❌ Token validation failed:', error);
-          console.error('Error details:', error);
-          // Token invalid, clear everything
-          clearAuthData();
-          // Force reload to login page if token is invalid
-          window.location.href = '/login';
+          console.error('⚠️ Token validation failed:', error);
+          
+          // Only clear auth if it's a 401 (Unauthorized) error
+          // Don't clear on network errors or other issues
+          if (error?.response?.status === 401 || error?.status === 401) {
+            console.error('❌ Token is invalid (401), clearing auth data');
+            clearAuthData();
+            window.location.href = '/login';
+          } else {
+            // Network error or other issue - keep the user logged in
+            console.log('⚠️ Validation failed but keeping session (network error)');
+            console.log('User will remain logged in with cached data');
+          }
         });
     } else {
       // No valid credentials or auth status missing
