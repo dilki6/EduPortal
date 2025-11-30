@@ -45,6 +45,7 @@ public class AssessmentService : IAssessmentService
             Type = q.Type.ToString(),
             Points = q.Points,
             Order = q.Order,
+            ExpectedAnswer = includeAnswers ? q.ExpectedAnswer : null,
             Options = q.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionDto
             {
                 Id = o.Id,
@@ -78,7 +79,8 @@ public class AssessmentService : IAssessmentService
                 Text = questionRequest.Text,
                 Type = Enum.Parse<QuestionType>(questionRequest.Type),
                 Points = questionRequest.Points,
-                Order = i + 1
+                Order = i + 1,
+                ExpectedAnswer = questionRequest.ExpectedAnswer
             };
 
             _context.Questions.Add(question);
@@ -103,6 +105,78 @@ public class AssessmentService : IAssessmentService
         }
 
         return await GetAssessmentByIdAsync(assessment.Id);
+    }
+
+    public async Task<QuestionDto?> AddQuestionToAssessmentAsync(string assessmentId, CreateQuestionRequest request)
+    {
+        var assessment = await _context.Assessments.Include(a => a.Questions)
+            .FirstOrDefaultAsync(a => a.Id == assessmentId);
+        
+        if (assessment == null) return null;
+
+        // Get the next order number
+        var maxOrder = assessment.Questions.Any() ? assessment.Questions.Max(q => q.Order) : 0;
+
+        var question = new Question
+        {
+            AssessmentId = assessmentId,
+            Text = request.Text,
+            Type = Enum.Parse<QuestionType>(request.Type),
+            Points = request.Points,
+            Order = maxOrder + 1,
+            ExpectedAnswer = request.ExpectedAnswer
+        };
+
+        _context.Questions.Add(question);
+        await _context.SaveChangesAsync();
+
+        // Add options
+        for (int i = 0; i < request.Options.Count; i++)
+        {
+            var optionRequest = request.Options[i];
+            var option = new QuestionOption
+            {
+                QuestionId = question.Id,
+                Text = optionRequest.Text,
+                IsCorrect = optionRequest.IsCorrect,
+                Order = i + 1
+            };
+
+            _context.QuestionOptions.Add(option);
+        }
+
+        await _context.SaveChangesAsync();
+
+        // Return the created question
+        var createdQuestion = await _context.Questions.Include(q => q.Options)
+            .FirstOrDefaultAsync(q => q.Id == question.Id);
+
+        return createdQuestion == null ? null : new QuestionDto
+        {
+            Id = createdQuestion.Id,
+            Text = createdQuestion.Text,
+            Type = createdQuestion.Type.ToString(),
+            Points = createdQuestion.Points,
+            Order = createdQuestion.Order,
+            ExpectedAnswer = createdQuestion.ExpectedAnswer,
+            Options = createdQuestion.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionDto
+            {
+                Id = o.Id,
+                Text = o.Text,
+                IsCorrect = o.IsCorrect,
+                Order = o.Order
+            }).ToList()
+        };
+    }
+
+    public async Task<bool> DeleteQuestionAsync(string questionId)
+    {
+        var question = await _context.Questions.FindAsync(questionId);
+        if (question == null) return false;
+        
+        _context.Questions.Remove(question);
+        await _context.SaveChangesAsync();
+        return true;
     }
 
     public async Task<bool> PublishAssessmentAsync(string assessmentId)
@@ -199,12 +273,23 @@ public class AssessmentService : IAssessmentService
             Id = a.Id,
             QuestionId = a.QuestionId,
             QuestionText = a.Question?.Text ?? "",
+            QuestionType = a.Question?.Type.ToString() ?? "",
+            QuestionPoints = a.Question?.Points ?? 0,
+            QuestionOptions = a.Question?.Options.OrderBy(o => o.Order).Select(o => new QuestionOptionDto
+            {
+                Id = o.Id,
+                Text = o.Text,
+                IsCorrect = o.IsCorrect,
+                Order = o.Order
+            }).ToList() ?? new List<QuestionOptionDto>(),
             SelectedOptionId = a.SelectedOptionId,
             SelectedOptionText = a.Question?.Options.FirstOrDefault(o => o.Id == a.SelectedOptionId)?.Text,
             TextAnswer = a.TextAnswer,
             PointsEarned = a.PointsEarned,
             IsCorrect = a.IsCorrect,
-            CorrectAnswer = a.Question?.Options.FirstOrDefault(o => o.IsCorrect)?.Text
+            CorrectOptionId = a.Question?.Options.FirstOrDefault(o => o.IsCorrect)?.Id,
+            CorrectAnswer = a.Question?.Options.FirstOrDefault(o => o.IsCorrect)?.Text,
+            ExpectedAnswer = a.Question?.ExpectedAnswer
         }).ToList();
 
     private static AssessmentDto MapToAssessmentDto(Assessment assessment)

@@ -30,6 +30,7 @@ public class CreateQuestionRequest
     public string Text { get; set; } = string.Empty;
     public string Type { get; set; } = "MultipleChoice";
     public int Points { get; set; } = 1;
+    public string? ExpectedAnswer { get; set; }
     public List<CreateQuestionOptionRequest> Options { get; set; } = new();
 }
 
@@ -46,6 +47,7 @@ public class QuestionDto
     public string Type { get; set; } = string.Empty;
     public int Points { get; set; }
     public int Order { get; set; }
+    public string? ExpectedAnswer { get; set; }
     public List<QuestionOptionDto> Options { get; set; } = new();
 }
 
@@ -88,10 +90,15 @@ public class AnswerDto
     public string Id { get; set; } = string.Empty;
     public string QuestionId { get; set; } = string.Empty;
     public string QuestionText { get; set; } = string.Empty;
+    public string QuestionType { get; set; } = string.Empty;
+    public int QuestionPoints { get; set; }
+    public List<QuestionOptionDto> QuestionOptions { get; set; } = new();
     public string? SelectedOptionId { get; set; }
     public string? SelectedOptionText { get; set; }
     public string? TextAnswer { get; set; }
     public int? PointsEarned { get; set; }
     public bool IsCorrect { get; set; }
+    public string? CorrectOptionId { get; set; }
     public string? CorrectAnswer { get; set; }
+    public string? ExpectedAnswer { get; set; }
 }

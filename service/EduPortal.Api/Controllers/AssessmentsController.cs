@@ -43,6 +43,22 @@ public class AssessmentsController : ControllerBase
         return Ok(await _assessmentService.GetAssessmentQuestionsAsync(id, includeAnswers && isTeacher));
     }
 
+    [HttpPost("{id}/questions")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> AddQuestionToAssessment(string id, [FromBody] CreateQuestionRequest request)
+    {
+        var question = await _assessmentService.AddQuestionToAssessmentAsync(id, request);
+        return question == null ? BadRequest(new { message = "Failed to add question" }) : Ok(question);
+    }
+
+    [HttpDelete("questions/{questionId}")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> DeleteQuestion(string questionId)
+    {
+        var result = await _assessmentService.DeleteQuestionAsync(questionId);
+        return result ? NoContent() : NotFound(new { message = "Question not found" });
+    }
+
     [HttpPost]
     [Authorize(Roles = "Teacher")]
     public async Task<IActionResult> CreateAssessment([FromBody] CreateAssessmentRequest request)

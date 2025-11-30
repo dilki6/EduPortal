@@ -184,9 +184,10 @@ export interface Question {
   id: string;
   assessmentId: string;
   text: string;
-  type: QuestionType;
+  type: string; // "MultipleChoice", "TrueFalse", "ShortAnswer", "Essay"
   points: number;
   order: number;
+  expectedAnswer?: string;
   options?: QuestionOption[];
 }
 
@@ -199,15 +200,13 @@ export interface QuestionOption {
 }
 
 export interface CreateQuestionRequest {
-  assessmentId: string;
   text: string;
-  type: QuestionType;
+  type: string; // "MultipleChoice", "TrueFalse", "ShortAnswer", "Essay"
   points: number;
-  order: number;
-  options?: Array<{
+  expectedAnswer?: string;
+  options: Array<{
     text: string;
     isCorrect: boolean;
-    order: number;
   }>;
 }
 
@@ -226,10 +225,18 @@ export interface Answer {
   id: string;
   attemptId: string;
   questionId: string;
+  questionText: string;
+  questionType: string;
+  questionPoints: number;
+  questionOptions: QuestionOption[];
   selectedOptionId?: string;
+  selectedOptionText?: string;
   textAnswer?: string;
   pointsEarned: number;
   isCorrect: boolean;
+  correctOptionId?: string;
+  correctAnswer?: string;
+  expectedAnswer?: string;
 }
 
 export interface SubmitAnswerRequest {
@@ -325,8 +332,8 @@ export const assessmentApi = {
   getQuestions: (assessmentId: string) => 
     apiClient.get<Question[]>(`/assessments/${assessmentId}/questions`),
   
-  addQuestion: (data: CreateQuestionRequest) => 
-    apiClient.post<Question>('/assessments/questions', data),
+  addQuestion: (assessmentId: string, data: CreateQuestionRequest) => 
+    apiClient.post<Question>(`/assessments/${assessmentId}/questions`, data),
   
   deleteQuestion: (questionId: string) => 
     apiClient.delete<void>(`/assessments/questions/${questionId}`),

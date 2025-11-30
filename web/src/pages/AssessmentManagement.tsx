@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { FileText, Plus, Edit, Trash2, Clock, Users, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { courseApi, assessmentApi, Course, Assessment as ApiAssessment, Question as ApiQuestion, CreateAssessmentRequest } from '@/lib/api';
+import { courseApi, assessmentApi, Course, Assessment as ApiAssessment, Question as ApiQuestion, CreateAssessmentRequest, CreateQuestionRequest } from '@/lib/api';
 
 interface Question {
   id: string;
@@ -45,6 +45,7 @@ const AssessmentManagement: React.FC = () => {
   const [currentAssessment, setCurrentAssessment] = useState<Assessment | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [deletingAssessmentId, setDeletingAssessmentId] = useState<string | null>(null);
+  const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
 
   // Form states
   const [assessmentTitle, setAssessmentTitle] = useState('');
@@ -78,22 +79,43 @@ const AssessmentManagement: React.FC = () => {
       setCourses(fetchedCourses);
 
       // Transform API assessments to local format with course names
-      const transformedAssessments = fetchedAssessments.map(assessment => {
-        const course = fetchedCourses.find(c => c.id === assessment.courseId);
-        return {
-          id: assessment.id,
-          title: assessment.title,
-          description: assessment.description,
-          courseId: assessment.courseId,
-          courseName: course?.name || 'Unknown Course',
-          timeLimit: assessment.durationMinutes,
-          isPublished: assessment.isPublished,
-          questions: [], // We'll fetch questions separately if needed
-          createdAt: assessment.createdAt
-        };
-      });
+      // Fetch questions for each assessment
+      const assessmentsWithQuestions = await Promise.all(
+        fetchedAssessments.map(async (assessment) => {
+          const course = fetchedCourses.find(c => c.id === assessment.courseId);
+          
+          // Fetch questions for this assessment
+          let questions: Question[] = [];
+          try {
+            const apiQuestions = await assessmentApi.getQuestions(assessment.id);
+            questions = apiQuestions.map(q => ({
+              id: q.id,
+              type: q.type === 'MultipleChoice' ? 'mcq' as const : 'text' as const,
+              question: q.text,
+              options: q.options?.map(o => o.text) || [],
+              correctAnswer: q.options?.find(o => o.isCorrect)?.text,
+              modelAnswer: (q.type === 'ShortAnswer' || q.type === 'Essay') ? '' : undefined,
+              points: q.points
+            }));
+          } catch (error) {
+            console.error(`Failed to fetch questions for assessment ${assessment.id}:`, error);
+          }
+
+          return {
+            id: assessment.id,
+            title: assessment.title,
+            description: assessment.description,
+            courseId: assessment.courseId,
+            courseName: course?.name || 'Unknown Course',
+            timeLimit: assessment.durationMinutes,
+            isPublished: assessment.isPublished,
+            questions,
+            createdAt: assessment.createdAt
+          };
+        })
+      );
       
-      setAssessments(transformedAssessments);
+      setAssessments(assessmentsWithQuestions);
     } catch (error) {
       console.error('Failed to fetch data:', error);
       toast({
@@ -161,7 +183,7 @@ const AssessmentManagement: React.FC = () => {
     }
   };
 
-  const handleAddQuestion = () => {
+  const handleAddQuestion = async () => {
     if (!questionText.trim() || !points || !currentAssessment) {
       toast({
         title: "Error",
@@ -192,45 +214,98 @@ const AssessmentManagement: React.FC = () => {
       return;
     }
 
-    const newQuestion: Question = {
-      id: Date.now().toString(),
-      type: questionType,
-      question: questionText,
-      ...(questionType === 'mcq' ? {
-        options: options.filter(opt => opt.trim()),
-        correctAnswer
-      } : {
-        modelAnswer
-      }),
-      points: parseInt(points)
-    };
+    try {
+      setIsSaving(true);
 
-    setAssessments(assessments.map(assessment => 
-      assessment.id === currentAssessment.id
-        ? { ...assessment, questions: [...assessment.questions, newQuestion] }
-        : assessment
-    ));
+      // Prepare the question data for API
+      const questionData: CreateQuestionRequest = {
+        text: questionText,
+        type: questionType === 'mcq' ? 'MultipleChoice' : 'ShortAnswer',
+        points: parseInt(points),
+        expectedAnswer: questionType === 'text' ? modelAnswer : undefined,
+        options: questionType === 'mcq' 
+          ? options.filter(opt => opt.trim()).map(opt => ({
+              text: opt,
+              isCorrect: opt === correctAnswer
+            }))
+          : [] // For text questions, options array should be empty
+      };
 
-    resetQuestionForm();
-    setIsQuestionDialogOpen(false);
-    
-    toast({
-      title: "Success",
-      description: "Question added successfully"
-    });
+      // Call API to add question
+      const createdQuestion = await assessmentApi.addQuestion(currentAssessment.id, questionData);
+
+      // Transform API response to local format
+      const newQuestion: Question = {
+        id: createdQuestion.id,
+        type: questionType,
+        question: createdQuestion.text,
+        ...(questionType === 'mcq' ? {
+          options: createdQuestion.options?.map(o => o.text) || [],
+          correctAnswer: createdQuestion.options?.find(o => o.isCorrect)?.text
+        } : {
+          modelAnswer
+        }),
+        points: createdQuestion.points
+      };
+
+      // Update local state
+      setAssessments(assessments.map(assessment => 
+        assessment.id === currentAssessment.id
+          ? { ...assessment, questions: [...assessment.questions, newQuestion] }
+          : assessment
+      ));
+
+      resetQuestionForm();
+      setIsQuestionDialogOpen(false);
+      
+      toast({
+        title: "Success",
+        description: "Question added successfully"
+      });
+    } catch (error) {
+      console.error('Failed to add question:', error);
+      toast({
+        title: "Error",
+        description: "Failed to add question. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
-  const handleDeleteQuestion = (assessmentId: string, questionId: string) => {
-    setAssessments(assessments.map(assessment => 
-      assessment.id === assessmentId
-        ? { ...assessment, questions: assessment.questions.filter(q => q.id !== questionId) }
-        : assessment
-    ));
-    
-    toast({
-      title: "Success",
-      description: "Question deleted successfully"
-    });
+  const handleDeleteQuestion = async (assessmentId: string, questionId: string) => {
+    try {
+      setDeletingQuestionId(questionId);
+
+      // Optimistically remove from UI
+      setAssessments(assessments.map(assessment => 
+        assessment.id === assessmentId
+          ? { ...assessment, questions: assessment.questions.filter(q => q.id !== questionId) }
+          : assessment
+      ));
+
+      // Call API to delete question
+      await assessmentApi.deleteQuestion(questionId);
+      
+      toast({
+        title: "Success",
+        description: "Question deleted successfully"
+      });
+    } catch (error) {
+      console.error('Failed to delete question:', error);
+      
+      // Restore previous state on error
+      await fetchData();
+      
+      toast({
+        title: "Error",
+        description: "Failed to delete question. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setDeletingQuestionId(null);
+    }
   };
 
   const handleDeleteAssessment = async (assessmentId: string, assessmentTitle: string) => {
@@ -468,8 +543,13 @@ const AssessmentManagement: React.FC = () => {
                             size="icon"
                             onClick={() => handleDeleteQuestion(assessment.id, question.id)}
                             className="text-destructive hover:text-destructive ml-2"
+                            disabled={deletingQuestionId === question.id}
                           >
-                            <Trash2 className="h-3 w-3" />
+                            {deletingQuestionId === question.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-3 w-3" />
+                            )}
                           </Button>
                         </div>
                       ))}
@@ -586,10 +666,13 @@ const AssessmentManagement: React.FC = () => {
               </div>
             </div>
             <DialogFooter>
-              <Button variant="outline" onClick={() => setIsQuestionDialogOpen(false)}>
+              <Button variant="outline" onClick={() => setIsQuestionDialogOpen(false)} disabled={isSaving}>
                 Cancel
               </Button>
-              <Button onClick={handleAddQuestion}>Add Question</Button>
+              <Button onClick={handleAddQuestion} disabled={isSaving}>
+                {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+                Add Question
+              </Button>
             </DialogFooter>
           </DialogContent>
         </Dialog>

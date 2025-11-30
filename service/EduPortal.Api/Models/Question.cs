@@ -8,6 +8,7 @@ public class Question
     public QuestionType Type { get; set; }
     public int Points { get; set; } = 1;
     public int Order { get; set; }
+    public string? ExpectedAnswer { get; set; }
     
     // Navigation properties
     public virtual Assessment? Assessment { get; set; }

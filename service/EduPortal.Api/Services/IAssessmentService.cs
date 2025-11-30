@@ -9,6 +9,8 @@ public interface IAssessmentService
     Task<AssessmentDto?> GetAssessmentByIdAsync(string assessmentId);
     Task<List<QuestionDto>> GetAssessmentQuestionsAsync(string assessmentId, bool includeAnswers = false);
     Task<AssessmentDto?> CreateAssessmentAsync(CreateAssessmentRequest request);
+    Task<QuestionDto?> AddQuestionToAssessmentAsync(string assessmentId, CreateQuestionRequest request);
+    Task<bool> DeleteQuestionAsync(string questionId);
     Task<bool> PublishAssessmentAsync(string assessmentId);
     Task<bool> DeleteAssessmentAsync(string assessmentId);
     Task<AssessmentAttemptDto?> StartAssessmentAsync(string assessmentId, string studentId);
