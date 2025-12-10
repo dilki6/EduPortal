@@ -23,11 +23,28 @@ public class CourseService : ICourseService
             .Where(c => c.TeacherId == teacherId).ToListAsync())
         .Select(MapToCourseDto).ToList();
 
-    public async Task<List<CourseDto>> GetStudentCoursesAsync(string studentId) =>
-        (await _context.Enrollments.Include(e => e.Course).ThenInclude(c => c!.Teacher)
-            .Include(e => e.Course).ThenInclude(c => c!.Enrollments)
-            .Where(e => e.StudentId == studentId).Select(e => e.Course!).ToListAsync())
-        .Select(MapToCourseDto).ToList();
+    public async Task<List<CourseDto>> GetStudentCoursesAsync(string studentId)
+    {
+        var enrollments = await _context.Enrollments
+            .Include(e => e.Course)
+            .ThenInclude(c => c!.Teacher)
+            .Include(e => e.Course)
+            .ThenInclude(c => c!.Enrollments)
+            .Where(e => e.StudentId == studentId)
+            .ToListAsync();
+
+        Console.WriteLine($"📚 GetStudentCoursesAsync: Found {enrollments.Count} enrollments for student {studentId}");
+        
+        var courses = enrollments
+            .Where(e => e.Course != null)
+            .Select(e => e.Course!)
+            .Select(MapToCourseDto)
+            .ToList();
+
+        Console.WriteLine($"✅ GetStudentCoursesAsync: Returning {courses.Count} courses");
+        
+        return courses;
+    }
 
     public async Task<CourseDto?> GetCourseByIdAsync(string courseId)
     {
@@ -81,11 +98,27 @@ public class CourseService : ICourseService
 
     public async Task<bool> EnrollStudentAsync(EnrollStudentRequest request)
     {
-        if (await _context.Enrollments.AnyAsync(e => e.StudentId == request.StudentId && e.CourseId == request.CourseId))
+        Console.WriteLine($"📝 EnrollStudentAsync: Enrolling student {request.StudentId} in course {request.CourseId}");
+        
+        var existingEnrollment = await _context.Enrollments
+            .AnyAsync(e => e.StudentId == request.StudentId && e.CourseId == request.CourseId);
+            
+        if (existingEnrollment)
+        {
+            Console.WriteLine($"⚠️ EnrollStudentAsync: Student {request.StudentId} already enrolled in course {request.CourseId}");
             return false;
+        }
 
-        _context.Enrollments.Add(new Enrollment { StudentId = request.StudentId, CourseId = request.CourseId });
+        var enrollment = new Enrollment 
+        { 
+            StudentId = request.StudentId, 
+            CourseId = request.CourseId 
+        };
+        
+        _context.Enrollments.Add(enrollment);
         await _context.SaveChangesAsync();
+        
+        Console.WriteLine($"✅ EnrollStudentAsync: Successfully enrolled student {request.StudentId} in course {request.CourseId}");
         return true;
     }
 

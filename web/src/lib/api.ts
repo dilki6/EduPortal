@@ -360,15 +360,15 @@ export const assessmentApi = {
   
   getAssessmentAttempts: (assessmentId: string) => 
     apiClient.get<AssessmentAttempt[]>(`/assessments/${assessmentId}/attempts`),
+  
+  getStudentAttempts: () => 
+    apiClient.get<AssessmentAttempt[]>('/assessments/attempts/student'),
 };
 
 // Progress APIs
 export const progressApi = {
   getMyProgress: () => 
     apiClient.get<StudentProgress>('/progress/my'),
-  
-  getMyAttempts: () => 
-    apiClient.get<AssessmentAttempt[]>('/progress/my-attempts'),
   
   getCourseProgress: (courseId: string) => 
     apiClient.get<StudentProgress[]>(`/progress/course/${courseId}`),

@@ -34,7 +34,18 @@ public class CoursesController : ControllerBase
     public async Task<IActionResult> GetMyEnrolledCourses()
     {
         var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
-        return userId == null ? Unauthorized() : Ok(await _courseService.GetStudentCoursesAsync(userId));
+        Console.WriteLine($"📚 GetMyEnrolledCourses: Request from user {userId}");
+        
+        if (userId == null) 
+        {
+            Console.WriteLine("❌ GetMyEnrolledCourses: Unauthorized - No userId");
+            return Unauthorized();
+        }
+        
+        var courses = await _courseService.GetStudentCoursesAsync(userId);
+        Console.WriteLine($"✅ GetMyEnrolledCourses: Returning {courses.Count} courses");
+        
+        return Ok(courses);
     }
 
     [HttpGet("{id}")]

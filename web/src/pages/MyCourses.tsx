@@ -1,74 +1,158 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Progress } from '@/components/ui/progress';
-import { BookOpen, Calendar, Clock, Trophy, Play } from 'lucide-react';
+import { BookOpen, Calendar, Clock, Trophy, Play, Loader2, FileText, RefreshCw } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/hooks/use-toast';
+import { 
+  courseApi, 
+  assessmentApi, 
+  type Course, 
+  type Assessment,
+  type AssessmentAttempt 
+} from '@/lib/api';
 
-interface Course {
-  id: string;
-  name: string;
-  description: string;
-  instructor: string;
-  enrolledAt: string;
-  progress: number;
-  totalAssessments: number;
-  completedAssessments: number;
-  nextAssessment?: {
-    id: string;
-    title: string;
-    dueDate: string;
-  };
+interface AssessmentCard {
+  assessmentId: string;
+  assessmentTitle: string;
+  assessmentDescription: string;
+  dueDate?: string;
+  courseId: string;
+  courseName: string;
+  teacherName?: string;
+  isCompleted: boolean;
+  attempt?: AssessmentAttempt;
+  score?: number;
+  maxScore?: number;
 }
 
 const MyCourses: React.FC = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   
-  const [courses] = useState<Course[]>([
-    {
-      id: '1',
-      name: 'Advanced Mathematics',
-      description: 'Learn advanced mathematical concepts including calculus, linear algebra, and differential equations.',
-      instructor: 'Dr. Sarah Johnson',
-      enrolledAt: '2024-01-15',
-      progress: 75,
-      totalAssessments: 8,
-      completedAssessments: 6,
-      nextAssessment: {
-        id: '1',
-        title: 'Calculus Basics',
-        dueDate: '2024-01-25'
-      }
-    },
-    {
-      id: '2',
-      name: 'Physics Fundamentals',
-      description: 'Explore the fundamental principles of physics including mechanics, thermodynamics, and electromagnetism.',
-      instructor: 'Prof. Michael Chen',
-      enrolledAt: '2024-01-20',
-      progress: 45,
-      totalAssessments: 6,
-      completedAssessments: 3,
-      nextAssessment: {
-        id: '2',
-        title: 'Newton\'s Laws',
-        dueDate: '2024-01-28'
-      }
-    },
-    {
-      id: '3',
-      name: 'Chemistry Lab',
-      description: 'Hands-on laboratory experience with chemical reactions, analysis, and synthesis.',
-      instructor: 'Dr. Emily Rodriguez',
-      enrolledAt: '2024-01-10',
-      progress: 90,
-      totalAssessments: 5,
-      completedAssessments: 5
-    }
-  ]);
+  const [assessmentCards, setAssessmentCards] = useState<AssessmentCard[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
-  const startAssessment = (courseId: string, assessmentId: string) => {
+  useEffect(() => {
+    fetchAssessmentsData();
+    
+    // Refresh data when window regains focus (e.g., after teacher creates new assessment)
+    const handleFocus = () => {
+      fetchAssessmentsData(true);
+    };
+    
+    window.addEventListener('focus', handleFocus);
+    
+    return () => {
+      window.removeEventListener('focus', handleFocus);
+    };
+  }, []);
+
+  const fetchAssessmentsData = async (isRefresh = false) => {
+    try {
+      if (isRefresh) {
+        setRefreshing(true);
+      } else {
+        setLoading(true);
+      }
+      
+      // Fetch enrolled courses
+      const enrolledCourses = await courseApi.getMyEnrolledCourses();
+      console.log(`📚 Fetched ${enrolledCourses.length} enrolled courses:`, enrolledCourses.map(c => c.name));
+      
+      // Fetch all student attempts
+      const allAttempts = await assessmentApi.getStudentAttempts();
+      console.log(`✅ Fetched ${allAttempts.length} student attempts`);
+      
+      // For each course, fetch its assessments
+      const allAssessmentCards: AssessmentCard[] = [];
+      
+      await Promise.all(
+        enrolledCourses.map(async (course) => {
+          try {
+            // Fetch assessments for this course
+            const courseAssessments = await assessmentApi.getAllByCourse(course.id);
+            console.log(`📝 Course "${course.name}": ${courseAssessments.length} total assessments`);
+            
+            // Filter only published assessments
+            const publishedAssessments = courseAssessments.filter(a => a.isPublished);
+            console.log(`✨ Course "${course.name}": ${publishedAssessments.length} published assessments`);
+            
+            // Create a card for each assessment
+            publishedAssessments.forEach((assessment) => {
+              // Find attempt for this assessment
+              const attempt = allAttempts.find(
+                a => a.assessmentId === assessment.id && (a.status === 'Completed' || a.status === 1)
+              );
+              
+              allAssessmentCards.push({
+                assessmentId: assessment.id,
+                assessmentTitle: assessment.title,
+                assessmentDescription: assessment.description,
+                dueDate: assessment.dueDate,
+                courseId: course.id,
+                courseName: course.name,
+                teacherName: course.teacherName,
+                isCompleted: !!attempt,
+                attempt: attempt,
+                score: attempt?.score,
+                maxScore: attempt?.maxScore
+              });
+            });
+          } catch (error) {
+            console.error(`Error fetching assessments for course ${course.id}:`, error);
+          }
+        })
+      );
+      
+      // Sort by due date (earliest first), then by completion status
+      allAssessmentCards.sort((a, b) => {
+        // Incomplete assessments first
+        if (a.isCompleted !== b.isCompleted) {
+          return a.isCompleted ? 1 : -1;
+        }
+        // Then sort by due date
+        if (a.dueDate && b.dueDate) {
+          return new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime();
+        }
+        if (a.dueDate) return -1;
+        if (b.dueDate) return 1;
+        return 0;
+      });
+      
+      console.log(`🎯 Total assessments loaded: ${allAssessmentCards.length}`);
+      console.log(`✅ Completed: ${allAssessmentCards.filter(a => a.isCompleted).length}`);
+      console.log(`⏳ Pending: ${allAssessmentCards.filter(a => !a.isCompleted).length}`);
+      
+      setAssessmentCards(allAssessmentCards);
+      
+      if (isRefresh) {
+        toast({
+          title: 'Refreshed',
+          description: 'Assessment list updated successfully',
+        });
+      }
+    } catch (error: any) {
+      console.error('Failed to fetch assessments:', error);
+      toast({
+        title: 'Error',
+        description: error.response?.data?.message || 'Failed to load assessments',
+        variant: 'destructive',
+      });
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  const handleRefresh = () => {
+    fetchAssessmentsData(true);
+  };
+
+  const startAssessment = (assessmentId: string) => {
     navigate(`/attempt-assessment/${assessmentId}`);
   };
 
@@ -84,105 +168,134 @@ const MyCourses: React.FC = () => {
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">My Courses</h1>
-          <p className="text-muted-foreground">Track your progress and access course materials</p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">My Assessments</h1>
+            <p className="text-muted-foreground">View and complete your assigned assessments</p>
+          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={handleRefresh}
+            disabled={loading || refreshing}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </Button>
         </div>
 
-        {/* Courses Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {courses.map((course) => (
-            <Card key={course.id} className="bg-card hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3">
-                    <BookOpen className="h-6 w-6 text-primary mt-1" />
-                    <div>
-                      <CardTitle className="text-xl">{course.name}</CardTitle>
-                      <CardDescription className="mt-1">
-                        Instructor: {course.instructor}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  <Badge variant="outline">
-                    {course.progress}% Complete
-                  </Badge>
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                {/* Course Description */}
-                <p className="text-sm text-muted-foreground">{course.description}</p>
-                
-                {/* Progress Bar */}
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Course Progress</span>
-                    <span className="font-medium">{course.progress}%</span>
-                  </div>
-                  <Progress value={course.progress} className="h-2" />
-                </div>
+        {/* Loading State */}
+        {loading && (
+          <div className="flex items-center justify-center h-64">
+            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          </div>
+        )}
 
-                {/* Assessment Progress */}
-                <div className="flex items-center gap-4 text-sm">
-                  <div className="flex items-center gap-2">
-                    <Trophy className="h-4 w-4 text-primary" />
-                    <span>{course.completedAssessments}/{course.totalAssessments} Assessments</span>
-                  </div>
-                  <div className="flex items-center gap-2 text-muted-foreground">
-                    <Calendar className="h-4 w-4" />
-                    <span>Enrolled {new Date(course.enrolledAt).toLocaleDateString()}</span>
-                  </div>
-                </div>
-
-                {/* Next Assessment */}
-                {course.nextAssessment && (
-                  <div className="p-3 bg-primary/5 rounded-lg border border-primary/20">
-                    <div className="flex items-center justify-between">
+        {/* Assessments Grid */}
+        {!loading && assessmentCards.length > 0 && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {assessmentCards.map((card) => (
+              <Card key={card.assessmentId} className="bg-card hover:shadow-lg transition-shadow">
+                <CardHeader>
+                  <div className="flex items-start justify-between">
+                    <div className="flex items-start gap-3">
+                      <FileText className="h-6 w-6 text-primary mt-1" />
                       <div>
-                        <h4 className="font-medium text-sm">Next Assessment</h4>
-                        <p className="text-sm text-muted-foreground">{course.nextAssessment.title}</p>
-                        <div className="flex items-center gap-1 mt-1">
-                          <Clock className="h-3 w-3 text-primary" />
-                          <span className="text-xs text-primary">
-                            Due in {getDaysUntilDue(course.nextAssessment.dueDate)} days
+                        <CardTitle className="text-xl">{card.assessmentTitle}</CardTitle>
+                        <CardDescription className="mt-1">
+                          Course: {card.courseName}
+                        </CardDescription>
+                        {card.teacherName && (
+                          <CardDescription className="text-xs">
+                            Instructor: {card.teacherName}
+                          </CardDescription>
+                        )}
+                      </div>
+                    </div>
+                    <Badge variant={card.isCompleted ? "default" : "outline"}>
+                      {card.isCompleted ? "Completed" : "Pending"}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                
+                <CardContent className="space-y-4">
+                  {/* Assessment Description */}
+                  <p className="text-sm text-muted-foreground">{card.assessmentDescription}</p>
+                  
+                  {/* Score Display (if completed) */}
+                  {card.isCompleted && card.score !== undefined && card.maxScore !== undefined && (
+                    <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <Trophy className="h-5 w-5 text-green-600" />
+                          <span className="text-sm font-medium text-green-800">Assessment Completed</span>
+                        </div>
+                        <Badge variant="secondary" className="text-base">
+                          {card.score}/{card.maxScore}
+                        </Badge>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Due Date and Action */}
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-4 text-sm">
+                      {card.dueDate && (
+                        <div className="flex items-center gap-2">
+                          <Clock className="h-4 w-4 text-primary" />
+                          <span className="text-muted-foreground">
+                            {card.isCompleted ? (
+                              `Completed`
+                            ) : (
+                              <>
+                                Due in {getDaysUntilDue(card.dueDate)} days
+                                <span className="text-xs ml-1">
+                                  ({new Date(card.dueDate).toLocaleDateString()})
+                                </span>
+                              </>
+                            )}
                           </span>
                         </div>
-                      </div>
+                      )}
+                    </div>
+                    
+                    {!card.isCompleted && (
                       <Button
                         size="sm"
-                        onClick={() => startAssessment(course.id, course.nextAssessment!.id)}
+                        onClick={() => startAssessment(card.assessmentId)}
                         className="flex items-center gap-2"
                       >
                         <Play className="h-4 w-4" />
                         Start
                       </Button>
-                    </div>
+                    )}
+                    
+                    {card.isCompleted && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/my-progress`)}
+                        className="flex items-center gap-2"
+                      >
+                        View Results
+                      </Button>
+                    )}
                   </div>
-                )}
-
-                {/* Course Complete */}
-                {course.progress === 100 && !course.nextAssessment && (
-                  <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                    <div className="flex items-center gap-2">
-                      <Trophy className="h-4 w-4 text-green-600" />
-                      <span className="text-sm font-medium text-green-800">Course Completed!</span>
-                    </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
 
         {/* Empty State */}
-        {courses.length === 0 && (
+        {!loading && assessmentCards.length === 0 && (
           <Card>
             <CardContent className="flex flex-col items-center justify-center h-64">
-              <BookOpen className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-medium text-foreground mb-2">No Courses Enrolled</h3>
+              <FileText className="h-12 w-12 text-muted-foreground mb-4" />
+              <h3 className="text-lg font-medium text-foreground mb-2">No Assessments Available</h3>
               <p className="text-muted-foreground text-center">
-                You haven't enrolled in any courses yet. Contact your instructor to get started.
+                You don't have any assessments assigned yet. Check back later or contact your instructor.
               </p>
             </CardContent>
           </Card>
