@@ -13,6 +13,7 @@ public interface IAssessmentService
     Task<QuestionDto?> UpdateQuestionAsync(string questionId, CreateQuestionRequest request);
     Task<bool> DeleteQuestionAsync(string questionId);
     Task<bool> PublishAssessmentAsync(string assessmentId);
+    Task<bool> UnpublishAssessmentAsync(string assessmentId);
     Task<bool> DeleteAssessmentAsync(string assessmentId);
     Task<AssessmentAttemptDto?> StartAssessmentAsync(string assessmentId, string studentId);
     Task<AssessmentAttemptDto?> SubmitAssessmentAsync(string attemptId, SubmitAssessmentRequest request);

@@ -84,6 +84,14 @@ public class AssessmentsController : ControllerBase
         return result ? Ok(new { message = "Assessment published successfully" }) : NotFound(new { message = "Assessment not found" });
     }
 
+    [HttpPost("{id}/unpublish")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> UnpublishAssessment(string id)
+    {
+        var result = await _assessmentService.UnpublishAssessmentAsync(id);
+        return result ? Ok(new { message = "Assessment unpublished successfully" }) : NotFound(new { message = "Assessment not found" });
+    }
+
     [HttpDelete("{id}")]
     [Authorize(Roles = "Teacher")]
     public async Task<IActionResult> DeleteAssessment(string id)

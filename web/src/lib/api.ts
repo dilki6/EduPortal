@@ -164,12 +164,15 @@ export interface StudentDto {
 export interface Assessment {
   id: string;
   courseId: string;
+  courseName?: string;
   title: string;
   description: string;
   durationMinutes: number;
   isPublished: boolean;
   dueDate?: string;
   createdAt: string;
+  questionCount?: number;
+  totalPoints?: number;
 }
 
 export interface CreateAssessmentRequest {
@@ -329,7 +332,10 @@ export const assessmentApi = {
     apiClient.delete<void>(`/assessments/${id}`),
   
   publish: (id: string) => 
-    apiClient.put<Assessment>(`/assessments/${id}/publish`, {}),
+    apiClient.post<Assessment>(`/assessments/${id}/publish`, {}),
+  
+  unpublish: (id: string) => 
+    apiClient.post<Assessment>(`/assessments/${id}/unpublish`, {}),
   
   getQuestions: (assessmentId: string) => 
     apiClient.get<Question[]>(`/assessments/${assessmentId}/questions`),

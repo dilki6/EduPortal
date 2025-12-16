@@ -242,6 +242,15 @@ public class AssessmentService : IAssessmentService
         return true;
     }
 
+    public async Task<bool> UnpublishAssessmentAsync(string assessmentId)
+    {
+        var assessment = await _context.Assessments.FindAsync(assessmentId);
+        if (assessment == null) return false;
+        assessment.IsPublished = false;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<bool> DeleteAssessmentAsync(string assessmentId)
     {
         var assessment = await _context.Assessments.FindAsync(assessmentId);
