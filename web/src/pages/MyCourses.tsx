@@ -25,6 +25,7 @@ interface AssessmentCard {
   courseName: string;
   teacherName?: string;
   isCompleted: boolean;
+  resultsReleased?: boolean;
   attempt?: AssessmentAttempt;
   score?: number;
   maxScore?: number;
@@ -115,6 +116,7 @@ const MyCourses: React.FC = () => {
                   courseName: course.name,
                   teacherName: course.teacherName,
                   isCompleted: !!attempt,
+                  resultsReleased: assessment.resultsReleased || false,
                   attempt: attempt,
                   score: attempt?.score,
                   maxScore: attempt?.maxScore,
@@ -367,8 +369,8 @@ const MyCourses: React.FC = () => {
                     </div>
                   </div>
                   
-                  {/* Score Display (if completed) */}
-                  {card.isCompleted && card.score !== undefined && card.maxScore !== undefined && (
+                  {/* Score Display (if completed and results released) */}
+                  {card.isCompleted && card.resultsReleased && card.score !== undefined && card.maxScore !== undefined && (
                     <div className="p-4 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-2">
@@ -389,6 +391,19 @@ const MyCourses: React.FC = () => {
                           className="h-2 bg-green-200"
                         />
                       </div>
+                    </div>
+                  )}
+
+                  {/* Submitted but results not released */}
+                  {card.isCompleted && !card.resultsReleased && (
+                    <div className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 rounded-lg border border-orange-200">
+                      <div className="flex items-center gap-2 mb-2">
+                        <Clock className="h-5 w-5 text-orange-600" />
+                        <span className="text-sm font-medium text-orange-800">Assessment Submitted</span>
+                      </div>
+                      <p className="text-xs text-orange-700">
+                        Your assessment has been submitted. Results will be available once your instructor releases them.
+                      </p>
                     </div>
                   )}
 
@@ -513,7 +528,7 @@ const MyCourses: React.FC = () => {
                       </Button>
                     )}
                     
-                    {card.isCompleted && (
+                    {card.isCompleted && card.resultsReleased && (
                       <Button
                         size="default"
                         variant="outline"
@@ -528,6 +543,18 @@ const MyCourses: React.FC = () => {
                       >
                         <FileText className="h-4 w-4" />
                         View My Answers
+                      </Button>
+                    )}
+                    
+                    {card.isCompleted && !card.resultsReleased && (
+                      <Button
+                        size="default"
+                        variant="outline"
+                        disabled
+                        className="flex items-center gap-2 cursor-not-allowed"
+                      >
+                        <Clock className="h-4 w-4" />
+                        Results Pending
                       </Button>
                     )}
                   </div>

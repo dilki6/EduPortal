@@ -11,6 +11,7 @@ public class AssessmentDto
     public DateTime? DueDate { get; set; }
     public DateTime CreatedAt { get; set; }
     public bool IsPublished { get; set; }
+    public bool ResultsReleased { get; set; }
     public int QuestionCount { get; set; }
     public int TotalPoints { get; set; }
 }
@@ -71,6 +72,7 @@ public class AssessmentAttemptDto
     public int? Score { get; set; }
     public int? MaxScore { get; set; }
     public string Status { get; set; } = string.Empty;
+    public bool ResultsReleased { get; set; }
 }
 
 public class SubmitAnswerRequest

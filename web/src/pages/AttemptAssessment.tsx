@@ -52,9 +52,12 @@ const AttemptAssessment: React.FC = () => {
         const attemptStatus = await assessmentApi.getAttemptStatus(assessmentId);
         
         if (attemptStatus.hasAttempted) {
+          const resultsReleased = attemptStatus.attempt?.resultsReleased || false;
           toast({
             title: 'Assessment Already Attempted',
-            description: 'You have already attempted this assessment. Redirecting to review your answers...',
+            description: resultsReleased 
+              ? 'You have already attempted this assessment. Redirecting to your results...'
+              : 'You have already submitted this assessment. Results will be available once released by your instructor.',
             variant: 'default'
           });
           setTimeout(() => {

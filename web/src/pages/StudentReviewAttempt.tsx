@@ -37,11 +37,15 @@ const StudentReviewAttempt: React.FC = () => {
         console.log('📊 Attempt data:', attemptData);
         setAttempt(attemptData);
 
-        // Fetch answers
-        const answersData = await assessmentApi.getAttemptAnswers(attemptId);
-        console.log('📝 Answers data:', answersData);
-        console.log('📝 Number of answers:', answersData.length);
-        setAnswers(answersData);
+        // Only fetch answers if results are released
+        if (attemptData.resultsReleased) {
+          const answersData = await assessmentApi.getAttemptAnswers(attemptId);
+          console.log('📝 Answers data:', answersData);
+          console.log('📝 Number of answers:', answersData.length);
+          setAnswers(answersData);
+        } else {
+          console.log('⏳ Results not released yet, skipping answers fetch');
+        }
 
       } catch (error: any) {
         console.error('❌ Failed to fetch attempt data:', error);
@@ -75,6 +79,9 @@ const StudentReviewAttempt: React.FC = () => {
   const percentage = maxScore > 0 ? Math.round((totalScore / maxScore) * 100) : 0;
   const correctAnswers = answers.filter(a => a.isCorrect).length;
 
+  // Check if results are released
+  const resultsReleased = attempt.resultsReleased ?? false;
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-5xl mx-auto p-6 space-y-6">
@@ -88,7 +95,39 @@ const StudentReviewAttempt: React.FC = () => {
           Back to My Courses
         </Button>
 
-        {/* Header Card */}
+        {/* Results Not Released Message */}
+        {!resultsReleased && (
+          <Card className="border-orange-200 bg-orange-50">
+            <CardHeader>
+              <div className="flex items-center gap-3">
+                <Clock className="h-6 w-6 text-orange-600" />
+                <div>
+                  <CardTitle className="text-orange-900">Assessment Submitted</CardTitle>
+                  <CardDescription className="text-orange-700">
+                    Your assessment has been submitted successfully. Results will be available once your instructor releases them.
+                  </CardDescription>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-2">
+                <p className="text-sm text-orange-800">
+                  <strong>Assessment:</strong> {attempt.assessmentTitle}
+                </p>
+                <p className="text-sm text-orange-800">
+                  <strong>Submitted:</strong> {new Date(attempt.completedAt!).toLocaleString()}
+                </p>
+                <p className="text-sm text-orange-800 mt-4">
+                  You will be able to view your score and review your answers once the instructor releases the results.
+                </p>
+              </div>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Header Card - Only show if results are released */}
+        {resultsReleased && (
+          <>
         <Card>
           <CardHeader>
             <div className="flex items-start justify-between">
@@ -294,6 +333,8 @@ const StudentReviewAttempt: React.FC = () => {
             Return to My Courses
           </Button>
         </div>
+        </>
+        )}
       </div>
     </div>
   );

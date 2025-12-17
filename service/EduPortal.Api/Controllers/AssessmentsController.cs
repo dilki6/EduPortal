@@ -92,6 +92,22 @@ public class AssessmentsController : ControllerBase
         return result ? Ok(new { message = "Assessment unpublished successfully" }) : NotFound(new { message = "Assessment not found" });
     }
 
+    [HttpPost("{id}/release-results")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> ReleaseResults(string id)
+    {
+        var result = await _assessmentService.ReleaseResultsAsync(id);
+        return result ? Ok(new { message = "Results released successfully" }) : NotFound(new { message = "Assessment not found" });
+    }
+
+    [HttpPost("{id}/withdraw-results")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> WithdrawResults(string id)
+    {
+        var result = await _assessmentService.WithdrawResultsAsync(id);
+        return result ? Ok(new { message = "Results withdrawn successfully" }) : NotFound(new { message = "Assessment not found" });
+    }
+
     [HttpDelete("{id}")]
     [Authorize(Roles = "Teacher")]
     public async Task<IActionResult> DeleteAssessment(string id)
@@ -137,7 +153,25 @@ public class AssessmentsController : ControllerBase
     }
 
     [HttpGet("attempts/{attemptId}/answers")]
-    public async Task<IActionResult> GetAttemptAnswers(string attemptId) => Ok(await _assessmentService.GetAttemptAnswersAsync(attemptId));
+    public async Task<IActionResult> GetAttemptAnswers(string attemptId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userRole = User.FindFirstValue(ClaimTypes.Role);
+        
+        if (userId == null) return Unauthorized();
+        
+        var attempt = await _assessmentService.GetAttemptByIdAsync(attemptId);
+        if (attempt == null) return NotFound(new { message = "Attempt not found" });
+        
+        // Teachers can always view answers
+        // Students can only view if results are released
+        if (userRole != "Teacher" && !attempt.ResultsReleased)
+        {
+            return Forbid();
+        }
+        
+        return Ok(await _assessmentService.GetAttemptAnswersAsync(attemptId));
+    }
 
     [HttpGet("{assessmentId}/attempt-status")]
     public async Task<IActionResult> GetAttemptStatus(string assessmentId)

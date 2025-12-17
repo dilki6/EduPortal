@@ -31,6 +31,7 @@ interface Assessment {
   questions: Question[];
   timeLimit: number; // in minutes
   isPublished: boolean;
+  resultsReleased?: boolean;
   createdAt: string;
 }
 
@@ -48,6 +49,7 @@ const AssessmentManagement: React.FC = () => {
   const [deletingAssessmentId, setDeletingAssessmentId] = useState<string | null>(null);
   const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
   const [publishingAssessmentId, setPublishingAssessmentId] = useState<string | null>(null);
+  const [releasingResultsId, setReleasingResultsId] = useState<string | null>(null);
 
   // Form states
   const [assessmentTitle, setAssessmentTitle] = useState('');
@@ -120,6 +122,7 @@ const AssessmentManagement: React.FC = () => {
             courseName: course?.name || 'Unknown Course',
             timeLimit: assessment.durationMinutes,
             isPublished: assessment.isPublished,
+            resultsReleased: assessment.resultsReleased || false,
             questions,
             createdAt: assessment.createdAt
           };
@@ -518,6 +521,55 @@ const AssessmentManagement: React.FC = () => {
     }
   };
 
+  const handleToggleResultsRelease = async (assessmentId: string, currentStatus: boolean) => {
+    try {
+      setReleasingResultsId(assessmentId);
+      
+      // Optimistically update UI
+      setAssessments(prevAssessments => 
+        prevAssessments.map(a => 
+          a.id === assessmentId 
+            ? { ...a, resultsReleased: !currentStatus } 
+            : a
+        )
+      );
+
+      // Call appropriate API endpoint
+      if (currentStatus) {
+        await assessmentApi.withdrawResults(assessmentId);
+        toast({
+          title: "Success",
+          description: "Results withdrawn. Students can no longer view their answers and scores."
+        });
+      } else {
+        await assessmentApi.releaseResults(assessmentId);
+        toast({
+          title: "Success",
+          description: "Results released! Students can now view their answers and scores."
+        });
+      }
+    } catch (error) {
+      console.error('Failed to toggle results release:', error);
+      
+      // Restore previous state on error
+      setAssessments(prevAssessments => 
+        prevAssessments.map(a => 
+          a.id === assessmentId 
+            ? { ...a, resultsReleased: currentStatus } 
+            : a
+        )
+      );
+      
+      toast({
+        title: "Error",
+        description: "Failed to update results release status. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setReleasingResultsId(null);
+    }
+  };
+
   const resetAssessmentForm = () => {
     setAssessmentTitle('');
     setAssessmentDescription('');
@@ -711,6 +763,24 @@ const AssessmentManagement: React.FC = () => {
                         )}
                         {assessment.isPublished ? 'Published' : 'Unpublished'}
                       </Button>
+                      {assessment.isPublished && (
+                        <Button
+                          variant={assessment.resultsReleased ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleToggleResultsRelease(assessment.id, assessment.resultsReleased || false)}
+                          disabled={releasingResultsId === assessment.id}
+                          className="flex items-center gap-2"
+                        >
+                          {releasingResultsId === assessment.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : assessment.resultsReleased ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : (
+                            <Circle className="h-4 w-4" />
+                          )}
+                          {assessment.resultsReleased ? 'Results Released' : 'Release Results'}
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"
@@ -742,6 +812,18 @@ const AssessmentManagement: React.FC = () => {
                     <Badge variant="secondary" className="bg-gray-500">
                       <EyeOff className="h-3 w-3 mr-1" />
                       Hidden from Students
+                    </Badge>
+                  )}
+                  {assessment.isPublished && assessment.resultsReleased && (
+                    <Badge variant="default" className="bg-blue-500">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Results Released
+                    </Badge>
+                  )}
+                  {assessment.isPublished && !assessment.resultsReleased && (
+                    <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">
+                      <Circle className="h-3 w-3 mr-1" />
+                      Results Pending
                     </Badge>
                   )}
                   <Badge variant="outline" className="flex items-center gap-1">

@@ -169,6 +169,7 @@ export interface Assessment {
   description: string;
   durationMinutes: number;
   isPublished: boolean;
+  resultsReleased?: boolean;
   dueDate?: string;
   createdAt: string;
   questionCount?: number;
@@ -224,6 +225,7 @@ export interface AssessmentAttempt {
   score: number;
   maxScore: number;
   status: AttemptStatus | string; // Allow both enum and string from backend
+  resultsReleased?: boolean;
 }
 
 export interface Answer {
@@ -336,6 +338,12 @@ export const assessmentApi = {
   
   unpublish: (id: string) => 
     apiClient.post<Assessment>(`/assessments/${id}/unpublish`, {}),
+  
+  releaseResults: (id: string) => 
+    apiClient.post<{ message: string }>(`/assessments/${id}/release-results`, {}),
+  
+  withdrawResults: (id: string) => 
+    apiClient.post<{ message: string }>(`/assessments/${id}/withdraw-results`, {}),
   
   getQuestions: (assessmentId: string) => 
     apiClient.get<Question[]>(`/assessments/${assessmentId}/questions`),

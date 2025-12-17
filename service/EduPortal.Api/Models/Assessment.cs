@@ -10,6 +10,7 @@ public class Assessment
     public DateTime? DueDate { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
     public bool IsPublished { get; set; } = false;
+    public bool ResultsReleased { get; set; } = false;
     
     // Navigation properties
     public virtual Course? Course { get; set; }

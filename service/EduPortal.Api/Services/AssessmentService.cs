@@ -251,6 +251,24 @@ public class AssessmentService : IAssessmentService
         return true;
     }
 
+    public async Task<bool> ReleaseResultsAsync(string assessmentId)
+    {
+        var assessment = await _context.Assessments.FindAsync(assessmentId);
+        if (assessment == null) return false;
+        assessment.ResultsReleased = true;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
+    public async Task<bool> WithdrawResultsAsync(string assessmentId)
+    {
+        var assessment = await _context.Assessments.FindAsync(assessmentId);
+        if (assessment == null) return false;
+        assessment.ResultsReleased = false;
+        await _context.SaveChangesAsync();
+        return true;
+    }
+
     public async Task<bool> DeleteAssessmentAsync(string assessmentId)
     {
         var assessment = await _context.Assessments.FindAsync(assessmentId);
@@ -422,6 +440,7 @@ public class AssessmentService : IAssessmentService
             DueDate = assessment.DueDate,
             CreatedAt = assessment.CreatedAt,
             IsPublished = assessment.IsPublished,
+            ResultsReleased = assessment.ResultsReleased,
             QuestionCount = assessment.Questions.Count,
             TotalPoints = assessment.Questions.Sum(q => q.Points)
         };
@@ -440,7 +459,8 @@ public class AssessmentService : IAssessmentService
             CompletedAt = attempt.CompletedAt,
             Score = attempt.Score,
             MaxScore = attempt.MaxScore,
-            Status = attempt.Status.ToString()
+            Status = attempt.Status.ToString(),
+            ResultsReleased = attempt.Assessment?.ResultsReleased ?? false
         };
     }
 }

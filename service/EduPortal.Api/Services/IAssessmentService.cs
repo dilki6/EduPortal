@@ -14,6 +14,8 @@ public interface IAssessmentService
     Task<bool> DeleteQuestionAsync(string questionId);
     Task<bool> PublishAssessmentAsync(string assessmentId);
     Task<bool> UnpublishAssessmentAsync(string assessmentId);
+    Task<bool> ReleaseResultsAsync(string assessmentId);
+    Task<bool> WithdrawResultsAsync(string assessmentId);
     Task<bool> DeleteAssessmentAsync(string assessmentId);
     Task<AssessmentAttemptDto?> StartAssessmentAsync(string assessmentId, string studentId);
     Task<AssessmentAttemptDto?> GetAttemptByAssessmentAndStudentAsync(string assessmentId, string studentId);
