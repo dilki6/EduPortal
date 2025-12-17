@@ -345,6 +345,9 @@ export const assessmentApi = {
   withdrawResults: (id: string) => 
     apiClient.post<{ message: string }>(`/assessments/${id}/withdraw-results`, {}),
   
+  updateAnswerScore: (answerId: string, score: number) =>
+    apiClient.put<{ message: string }>(`/assessments/answers/${answerId}/score`, { score }),
+  
   getQuestions: (assessmentId: string) => 
     apiClient.get<Question[]>(`/assessments/${assessmentId}/questions`),
   

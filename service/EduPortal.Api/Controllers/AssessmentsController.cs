@@ -182,4 +182,12 @@ public class AssessmentsController : ControllerBase
         var attempt = await _assessmentService.GetAttemptByAssessmentAndStudentAsync(assessmentId, userId);
         return Ok(new { hasAttempted = attempt != null, attempt });
     }
+
+    [HttpPut("answers/{answerId}/score")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> UpdateAnswerScore(string answerId, [FromBody] UpdateScoreDto dto)
+    {
+        var result = await _assessmentService.UpdateAnswerScoreAsync(answerId, dto.Score);
+        return result ? Ok(new { message = "Score updated successfully" }) : NotFound(new { message = "Answer not found" });
+    }
 }

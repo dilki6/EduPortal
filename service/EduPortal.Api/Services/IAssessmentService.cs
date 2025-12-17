@@ -24,4 +24,5 @@ public interface IAssessmentService
     Task<List<AssessmentAttemptDto>> GetAssessmentAttemptsAsync(string assessmentId);
     Task<AssessmentAttemptDto?> GetAttemptByIdAsync(string attemptId);
     Task<List<AnswerDto>> GetAttemptAnswersAsync(string attemptId);
+    Task<bool> UpdateAnswerScoreAsync(string answerId, decimal score);
 }

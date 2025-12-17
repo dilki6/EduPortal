@@ -104,3 +104,8 @@ public class AnswerDto
     public string? CorrectAnswer { get; set; }
     public string? ExpectedAnswer { get; set; }
 }
+
+public class UpdateScoreDto
+{
+    public decimal Score { get; set; }
+}

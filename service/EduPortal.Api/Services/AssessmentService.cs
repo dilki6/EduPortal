@@ -463,4 +463,30 @@ public class AssessmentService : IAssessmentService
             ResultsReleased = attempt.Assessment?.ResultsReleased ?? false
         };
     }
+
+    public async Task<bool> UpdateAnswerScoreAsync(string answerId, decimal score)
+    {
+        var answer = await _context.Answers
+            .Include(a => a.Question)
+            .Include(a => a.Attempt)
+            .FirstOrDefaultAsync(a => a.Id == answerId);
+
+        if (answer == null) return false;
+
+        // Validate score is within valid range
+        if (score < 0 || score > answer.Question!.Points) return false;
+
+        answer.PointsEarned = (int)score;
+
+        // Recalculate attempt total score
+        var allAnswers = await _context.Answers
+            .Where(a => a.AttemptId == answer.AttemptId)
+            .ToListAsync();
+
+        var totalScore = allAnswers.Sum(a => a.PointsEarned ?? 0);
+        answer.Attempt!.Score = totalScore;
+
+        await _context.SaveChangesAsync();
+        return true;
+    }
 }
