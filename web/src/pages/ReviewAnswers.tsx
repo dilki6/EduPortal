@@ -183,34 +183,41 @@ const ReviewAnswers: React.FC = () => {
   };
 
   const evaluateWithAI = async (answer: Answer) => {
-    // Simulated AI evaluation - In production, this would call an actual AI API
-    return new Promise<number>((resolve) => {
-      setTimeout(() => {
-        const studentAnswer = answer.textAnswer?.toLowerCase() || '';
-        const expectedAnswer = answer.expectedAnswer?.toLowerCase() || '';
-        
-        if (!studentAnswer || !expectedAnswer) {
-          resolve(0);
-          return;
+    try {
+      const result = await assessmentApi.evaluateAnswer({
+        question: answer.questionText,
+        expectedAnswer: answer.expectedAnswer || undefined,
+        studentAnswer: answer.textAnswer || '',
+        maxPoints: answer.questionPoints,
+      });
+      
+      return result.suggestedScore;
+    } catch (error) {
+      console.error('AI evaluation failed, using fallback:', error);
+      
+      // Fallback to simple keyword matching if API fails
+      const studentAnswer = answer.textAnswer?.toLowerCase() || '';
+      const expectedAnswer = answer.expectedAnswer?.toLowerCase() || '';
+      
+      if (!studentAnswer || !expectedAnswer) {
+        return 0;
+      }
+
+      const expectedWords = expectedAnswer.split(/\s+/).filter(w => w.length > 3);
+      const studentWords = studentAnswer.split(/\s+/);
+      
+      let matchCount = 0;
+      expectedWords.forEach(word => {
+        if (studentWords.some(sw => sw.includes(word) || word.includes(sw))) {
+          matchCount++;
         }
+      });
 
-        // Simple keyword matching algorithm (replace with actual AI in production)
-        const expectedWords = expectedAnswer.split(/\s+/).filter(w => w.length > 3);
-        const studentWords = studentAnswer.split(/\s+/);
-        
-        let matchCount = 0;
-        expectedWords.forEach(word => {
-          if (studentWords.some(sw => sw.includes(word) || word.includes(sw))) {
-            matchCount++;
-          }
-        });
-
-        const matchPercentage = expectedWords.length > 0 ? matchCount / expectedWords.length : 0;
-        const score = Math.round(matchPercentage * answer.questionPoints);
-        
-        resolve(Math.min(score, answer.questionPoints));
-      }, 1500); // Simulate API delay
-    });
+      const matchPercentage = expectedWords.length > 0 ? matchCount / expectedWords.length : 0;
+      const score = Math.round(matchPercentage * answer.questionPoints);
+      
+      return Math.min(score, answer.questionPoints);
+    }
   };
 
   const handleEvaluateSingle = async (answerId: string, answer: Answer) => {

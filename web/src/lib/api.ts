@@ -348,6 +348,18 @@ export const assessmentApi = {
   updateAnswerScore: (answerId: string, score: number) =>
     apiClient.put<{ message: string }>(`/assessments/answers/${answerId}/score`, { score }),
   
+  evaluateAnswer: (data: {
+    question: string;
+    expectedAnswer?: string;
+    studentAnswer: string;
+    maxPoints: number;
+  }) =>
+    apiClient.post<{
+      suggestedScore: number;
+      feedback: string;
+      confidence: number;
+    }>('/assessments/evaluate', data),
+  
   getQuestions: (assessmentId: string) => 
     apiClient.get<Question[]>(`/assessments/${assessmentId}/questions`),
   

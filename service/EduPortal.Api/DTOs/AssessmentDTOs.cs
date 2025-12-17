@@ -109,3 +109,11 @@ public class UpdateScoreDto
 {
     public decimal Score { get; set; }
 }
+
+public class EvaluateAnswerRequest
+{
+    public string Question { get; set; } = string.Empty;
+    public string? ExpectedAnswer { get; set; }
+    public string StudentAnswer { get; set; } = string.Empty;
+    public int MaxPoints { get; set; }
+}

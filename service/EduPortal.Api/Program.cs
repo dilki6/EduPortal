@@ -66,11 +66,15 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
+// Register HttpClient for Ollama
+builder.Services.AddHttpClient();
+
 // Register Services
 builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IProgressService, ProgressService>();
+builder.Services.AddScoped<IAiEvaluationService, AiEvaluationService>();
 
 // Configure CORS
 builder.Services.AddCors(options =>

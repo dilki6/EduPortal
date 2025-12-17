@@ -13,6 +13,7 @@ import StudentDashboard from "./pages/StudentDashboard";
 import CourseManagement from "./pages/CourseManagement";
 import AssessmentManagement from "./pages/AssessmentManagement";
 import ReviewAnswers from "./pages/ReviewAnswers";
+import TeacherAnalytics from "./pages/TeacherAnalytics";
 import MyCourses from "./pages/MyCourses";
 import MyProgress from "./pages/MyProgress";
 import AttemptAssessment from "./pages/AttemptAssessment";
@@ -66,10 +67,7 @@ const AppContent = () => {
 
         <Route path="/analytics-teacher" element={
           <ProtectedRoute allowedRoles={['teacher']}>
-            <div className="p-8 text-center">
-              <h2 className="text-2xl font-bold mb-4">Teacher Analytics</h2>
-              <p className="text-muted-foreground">Coming soon...</p>
-            </div>
+            <TeacherAnalytics />
           </ProtectedRoute>
         } />
 

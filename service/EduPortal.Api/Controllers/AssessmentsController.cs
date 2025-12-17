@@ -12,10 +12,12 @@ namespace EduPortal.Api.Controllers;
 public class AssessmentsController : ControllerBase
 {
     private readonly IAssessmentService _assessmentService;
+    private readonly IAiEvaluationService _aiEvaluationService;
 
-    public AssessmentsController(IAssessmentService assessmentService)
+    public AssessmentsController(IAssessmentService assessmentService, IAiEvaluationService aiEvaluationService)
     {
         _assessmentService = assessmentService;
+        _aiEvaluationService = aiEvaluationService;
     }
 
     [HttpGet("my-teaching")]
@@ -189,5 +191,26 @@ public class AssessmentsController : ControllerBase
     {
         var result = await _assessmentService.UpdateAnswerScoreAsync(answerId, dto.Score);
         return result ? Ok(new { message = "Score updated successfully" }) : NotFound(new { message = "Answer not found" });
+    }
+
+    [HttpPost("evaluate")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> EvaluateAnswer([FromBody] EvaluateAnswerRequest request)
+    {
+        if (string.IsNullOrEmpty(request.Question) || 
+            string.IsNullOrEmpty(request.StudentAnswer) || 
+            request.MaxPoints <= 0)
+        {
+            return BadRequest(new { message = "Invalid request data" });
+        }
+
+        var result = await _aiEvaluationService.EvaluateAnswerAsync(
+            request.Question,
+            request.ExpectedAnswer ?? "",
+            request.StudentAnswer,
+            request.MaxPoints
+        );
+
+        return Ok(result);
     }
 }
