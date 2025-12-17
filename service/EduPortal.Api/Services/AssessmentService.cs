@@ -377,18 +377,27 @@ public class AssessmentService : IAssessmentService
     }
 
     public async Task<List<AssessmentAttemptDto>> GetStudentAttemptsAsync(string studentId) =>
-        (await _context.AssessmentAttempts.Include(a => a.Assessment).Include(a => a.Student)
+        (await _context.AssessmentAttempts
+            .Include(a => a.Assessment)
+                .ThenInclude(a => a!.Course)
+            .Include(a => a.Student)
             .Where(a => a.StudentId == studentId).OrderByDescending(a => a.StartedAt).ToListAsync())
         .Select(MapToAttemptDto).ToList();
 
     public async Task<List<AssessmentAttemptDto>> GetAssessmentAttemptsAsync(string assessmentId) =>
-        (await _context.AssessmentAttempts.Include(a => a.Assessment).Include(a => a.Student)
+        (await _context.AssessmentAttempts
+            .Include(a => a.Assessment)
+                .ThenInclude(a => a!.Course)
+            .Include(a => a.Student)
             .Where(a => a.AssessmentId == assessmentId).OrderByDescending(a => a.StartedAt).ToListAsync())
         .Select(MapToAttemptDto).ToList();
 
     public async Task<AssessmentAttemptDto?> GetAttemptByIdAsync(string attemptId)
     {
-        var attempt = await _context.AssessmentAttempts.Include(a => a.Assessment).Include(a => a.Student)
+        var attempt = await _context.AssessmentAttempts
+            .Include(a => a.Assessment)
+                .ThenInclude(a => a!.Course)
+            .Include(a => a.Student)
             .FirstOrDefaultAsync(a => a.Id == attemptId);
         return attempt == null ? null : MapToAttemptDto(attempt);
     }
@@ -453,6 +462,8 @@ public class AssessmentService : IAssessmentService
             Id = attempt.Id,
             AssessmentId = attempt.AssessmentId,
             AssessmentTitle = attempt.Assessment?.Title ?? "",
+            CourseId = attempt.Assessment?.CourseId ?? "",
+            CourseName = attempt.Assessment?.Course?.Name ?? "",
             StudentId = attempt.StudentId,
             StudentName = attempt.Student?.Name ?? "",
             StartedAt = attempt.StartedAt,

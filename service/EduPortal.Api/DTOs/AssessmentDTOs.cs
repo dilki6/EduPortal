@@ -65,6 +65,8 @@ public class AssessmentAttemptDto
     public string Id { get; set; } = string.Empty;
     public string AssessmentId { get; set; } = string.Empty;
     public string AssessmentTitle { get; set; } = string.Empty;
+    public string CourseId { get; set; } = string.Empty;
+    public string CourseName { get; set; } = string.Empty;
     public string StudentId { get; set; } = string.Empty;
     public string StudentName { get; set; } = string.Empty;
     public DateTime StartedAt { get; set; }

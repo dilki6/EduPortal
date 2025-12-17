@@ -218,6 +218,8 @@ export interface AssessmentAttempt {
   id: string;
   assessmentId: string;
   assessmentTitle: string;
+  courseId: string;
+  courseName: string;
   studentId: string;
   studentName: string;
   startedAt: string;
@@ -255,9 +257,20 @@ export interface SubmitAnswerRequest {
 export interface StudentProgress {
   studentId: string;
   studentName: string;
-  coursesEnrolled: number;
+  totalCourses: number;
   completedAssessments: number;
+  pendingAssessments: number;
   averageScore: number;
+  courseProgress: CourseProgressDto[];
+}
+
+export interface CourseProgressDto {
+  courseId: string;
+  courseName: string;
+  progress: number;
+  completedAssessments: number;
+  totalAssessments: number;
+  averageScore?: number;
 }
 
 // ==================== API FUNCTIONS ====================
@@ -399,11 +412,14 @@ export const assessmentApi = {
 
 // Progress APIs
 export const progressApi = {
-  getMyProgress: () => 
-    apiClient.get<StudentProgress>('/progress/my'),
+  getStudentProgress: () => 
+    apiClient.get<StudentProgress>('/progress/student'),
   
   getCourseProgress: (courseId: string) => 
-    apiClient.get<StudentProgress[]>(`/progress/course/${courseId}`),
+    apiClient.get<CourseProgressDto>(`/progress/student/courses/${courseId}`),
+  
+  getAllCourseProgress: () =>
+    apiClient.get<CourseProgressDto[]>('/progress/student/courses'),
 };
 
 export default apiClient;
