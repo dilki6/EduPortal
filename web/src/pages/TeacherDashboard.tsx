@@ -1,29 +1,119 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { BookOpen, Users, FileText, BarChart3, Plus, TrendingUp } from 'lucide-react';
+import { BookOpen, Users, FileText, BarChart3, Plus, TrendingUp, Loader2 } from 'lucide-react';
+import { courseApi, assessmentApi } from '@/lib/api';
+import type { Course, Assessment, EnrollmentWithDetails, AssessmentAttempt } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
+
+interface CourseWithDetails extends Course {
+  studentCount: number;
+  assessmentCount: number;
+}
 
 const TeacherDashboard: React.FC = () => {
-  // Mock data - in real app, this would come from an API
-  const stats = {
-    totalCourses: 3,
-    totalStudents: 45,
-    totalAssessments: 12,
-    pendingEvaluations: 8
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [courses, setCourses] = useState<CourseWithDetails[]>([]);
+  const [assessments, setAssessments] = useState<Assessment[]>([]);
+  const [totalStudents, setTotalStudents] = useState(0);
+  const [pendingEvaluations, setPendingEvaluations] = useState(0);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      
+      // Fetch courses and assessments
+      const [teacherCourses, teacherAssessments] = await Promise.all([
+        courseApi.getMyTeachingCourses(),
+        assessmentApi.getMyTeachingAssessments()
+      ]);
+
+      // Fetch enrollments and attempts for each course
+      const coursesWithDetails = await Promise.all(
+        teacherCourses.map(async (course) => {
+          try {
+            const enrollments = await courseApi.getEnrollments(course.id);
+            const courseAssessments = teacherAssessments.filter(a => a.courseId === course.id);
+            
+            return {
+              ...course,
+              studentCount: enrollments.length,
+              assessmentCount: courseAssessments.length
+            };
+          } catch (error) {
+            console.error(`Failed to fetch details for course ${course.id}:`, error);
+            return {
+              ...course,
+              studentCount: 0,
+              assessmentCount: 0
+            };
+          }
+        })
+      );
+
+      // Calculate total students (unique across all courses)
+      const allEnrollments = await Promise.all(
+        teacherCourses.map(course => 
+          courseApi.getEnrollments(course.id).catch(() => [])
+        )
+      );
+      const uniqueStudentIds = new Set(
+        allEnrollments.flat().map(enrollment => enrollment.studentId)
+      );
+
+      // Calculate pending evaluations (attempts that are completed but not released)
+      let pending = 0;
+      for (const assessment of teacherAssessments) {
+        try {
+          const attempts = await assessmentApi.getAssessmentAttempts(assessment.id);
+          const completedUnreleased = attempts.filter(
+            attempt => attempt.status === 'Completed' && !assessment.resultsReleased
+          );
+          pending += completedUnreleased.length;
+        } catch (error) {
+          console.error(`Failed to fetch attempts for assessment ${assessment.id}:`, error);
+        }
+      }
+
+      setCourses(coursesWithDetails);
+      setAssessments(teacherAssessments);
+      setTotalStudents(uniqueStudentIds.size);
+      setPendingEvaluations(pending);
+    } catch (error: any) {
+      console.error('Failed to fetch dashboard data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load dashboard data',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const recentCourses = [
-    { id: 1, name: 'Advanced Mathematics', students: 20, assessments: 5 },
-    { id: 2, name: 'Physics Fundamentals', students: 15, assessments: 4 },
-    { id: 3, name: 'Chemistry Lab', students: 10, assessments: 3 }
-  ];
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
 
-  const recentActivity = [
-    { id: 1, type: 'assessment', message: 'New assessment submitted in Advanced Mathematics', time: '2 hours ago' },
-    { id: 2, type: 'student', message: '3 new students enrolled in Physics Fundamentals', time: '4 hours ago' },
-    { id: 3, type: 'evaluation', message: '5 assessments pending evaluation', time: '6 hours ago' }
-  ];
+  const stats = {
+    totalCourses: courses.length,
+    totalStudents: totalStudents,
+    totalAssessments: assessments.length,
+    pendingEvaluations: pendingEvaluations
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -97,24 +187,41 @@ const TeacherDashboard: React.FC = () => {
               </Link>
             </CardHeader>
             <CardContent className="space-y-4">
-              {recentCourses.map((course) => (
-                <div key={course.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <div>
-                    <h4 className="font-medium text-foreground">{course.name}</h4>
-                    <p className="text-sm text-muted-foreground">
-                      {course.students} students • {course.assessments} assessments
-                    </p>
-                  </div>
-                  <Button variant="ghost" size="sm">
-                    View
-                  </Button>
+              {courses.length > 0 ? (
+                <>
+                  {courses.slice(0, 3).map((course) => (
+                    <div key={course.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                      <div>
+                        <h4 className="font-medium text-foreground">{course.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {course.studentCount} student{course.studentCount !== 1 ? 's' : ''} • {course.assessmentCount} assessment{course.assessmentCount !== 1 ? 's' : ''}
+                        </p>
+                      </div>
+                      <Link to="/course-management">
+                        <Button variant="ghost" size="sm">
+                          View
+                        </Button>
+                      </Link>
+                    </div>
+                  ))}
+                  <Link to="/course-management">
+                    <Button variant="outline" className="w-full">
+                      View All Courses
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground mb-4">No courses created yet</p>
+                  <Link to="/course-management">
+                    <Button>
+                      <Plus className="h-4 w-4 mr-2" />
+                      Create Your First Course
+                    </Button>
+                  </Link>
                 </div>
-              ))}
-              <Link to="/course-management">
-                <Button variant="outline" className="w-full">
-                  View All Courses
-                </Button>
-              </Link>
+              )}
             </CardContent>
           </Card>
 
@@ -122,22 +229,78 @@ const TeacherDashboard: React.FC = () => {
           <Card>
             <CardHeader>
               <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Stay updated with latest activities</CardDescription>
+              <CardDescription>Your latest courses and assessments</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {recentActivity.map((activity) => (
-                <div key={activity.id} className="flex items-start space-x-3 p-3 bg-muted/30 rounded-lg">
-                  <div className="flex-shrink-0 mt-1">
-                    {activity.type === 'assessment' && <FileText className="h-4 w-4 text-primary" />}
-                    {activity.type === 'student' && <Users className="h-4 w-4 text-secondary" />}
-                    {activity.type === 'evaluation' && <BarChart3 className="h-4 w-4 text-accent" />}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-foreground">{activity.message}</p>
-                    <p className="text-xs text-muted-foreground">{activity.time}</p>
-                  </div>
+              {courses.length > 0 || assessments.length > 0 ? (
+                <>
+                  {/* Show recent assessments */}
+                  {assessments.slice(0, 2).map((assessment) => (
+                    <div key={`assessment-${assessment.id}`} className="flex items-start space-x-3 p-3 bg-muted/30 rounded-lg">
+                      <div className="flex-shrink-0 mt-1">
+                        <FileText className="h-4 w-4 text-primary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground">
+                          {assessment.isPublished ? 'Published' : 'Created'} assessment: {assessment.title}
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(assessment.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                  
+                  {/* Show recent courses */}
+                  {courses.slice(0, 2).map((course) => (
+                    <div key={`course-${course.id}`} className="flex items-start space-x-3 p-3 bg-muted/30 rounded-lg">
+                      <div className="flex-shrink-0 mt-1">
+                        <BookOpen className="h-4 w-4 text-secondary" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground">
+                          {course.studentCount > 0 
+                            ? `${course.studentCount} student${course.studentCount !== 1 ? 's' : ''} enrolled in ${course.name}`
+                            : `Course created: ${course.name}`
+                          }
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(course.createdAt).toLocaleDateString('en-US', {
+                            month: 'short',
+                            day: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Show pending evaluations if any */}
+                  {pendingEvaluations > 0 && (
+                    <div className="flex items-start space-x-3 p-3 bg-muted/30 rounded-lg">
+                      <div className="flex-shrink-0 mt-1">
+                        <BarChart3 className="h-4 w-4 text-accent" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm text-foreground">
+                          {pendingEvaluations} assessment{pendingEvaluations !== 1 ? 's' : ''} pending evaluation
+                        </p>
+                        <p className="text-xs text-muted-foreground">Needs attention</p>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">No activity yet</p>
+                  <p className="text-sm text-muted-foreground mt-2">Create courses and assessments to get started</p>
                 </div>
-              ))}
+              )}
             </CardContent>
           </Card>
         </div>
