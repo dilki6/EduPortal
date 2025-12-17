@@ -11,9 +11,17 @@ export interface User {
   email: string;
 }
 
+interface RegisterData {
+  username: string;
+  password: string;
+  name: string;
+  role: 'student' | 'teacher';
+}
+
 interface AuthContextType {
   user: User | null;
   login: (username: string, password: string) => Promise<User | null>;
+  register: (data: RegisterData) => Promise<{ success: boolean; user?: User; error?: string }>;
   logout: () => void;
   isLoading: boolean;
   isAuthenticated: boolean;
@@ -216,6 +224,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   };
 
+  const register = async (data: RegisterData): Promise<{ success: boolean; user?: User; error?: string }> => {
+    setIsLoading(true);
+    
+    try {
+      const response = await authApi.register({
+        username: data.username,
+        password: data.password,
+        name: data.name,
+        role: data.role,
+      });
+      
+      console.log('✅ Registration successful:', response);
+      
+      setIsLoading(false);
+      return { success: true, user: convertApiUser(response) };
+    } catch (error: any) {
+      console.error('❌ Registration failed:', error);
+      setIsLoading(false);
+      
+      // Extract error message from response
+      const errorMessage = error?.response?.data?.message || error?.message || 'Registration failed. Please try again.';
+      return { success: false, error: errorMessage };
+    }
+  };
+
   const logout = () => {
     console.log('🚪 Logging out...');
     clearAuthData();
@@ -224,6 +257,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const value = {
     user,
     login,
+    register,
     logout,
     isLoading,
     isAuthenticated,

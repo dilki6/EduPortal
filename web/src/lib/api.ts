@@ -112,8 +112,7 @@ export interface RegisterRequest {
   username: string;
   password: string;
   name: string;
-  email: string;
-  role: UserRole;
+  role: string;
 }
 
 export interface Course {
@@ -281,7 +280,7 @@ export const authApi = {
     apiClient.post<LoginResponse>('/auth/login', data),
   
   register: (data: RegisterRequest) => 
-    apiClient.post<LoginResponse>('/auth/register', data),
+    apiClient.post<User>('/auth/register', data),
   
   getMe: () => 
     apiClient.get<User>('/auth/me'),
