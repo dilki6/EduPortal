@@ -32,6 +32,7 @@ interface Assessment {
   timeLimit: number; // in minutes
   isPublished: boolean;
   resultsReleased?: boolean;
+  attemptCount?: number;
   createdAt: string;
 }
 
@@ -92,13 +93,14 @@ const AssessmentManagement: React.FC = () => {
       setCourses(fetchedCourses);
 
       // Transform API assessments to local format with course names
-      // Fetch questions for each assessment
+      // Fetch questions and attempts for each assessment
       const assessmentsWithQuestions = await Promise.all(
         fetchedAssessments.map(async (assessment) => {
           const course = fetchedCourses.find(c => c.id === assessment.courseId);
           
           // Fetch questions for this assessment
           let questions: Question[] = [];
+          let attemptCount = 0;
           try {
             const apiQuestions = await assessmentApi.getQuestions(assessment.id);
             questions = apiQuestions.map(q => ({
@@ -110,8 +112,12 @@ const AssessmentManagement: React.FC = () => {
               modelAnswer: (q.type === 'ShortAnswer' || q.type === 'Essay') ? '' : undefined,
               points: q.points
             }));
+
+            // Fetch attempts count for this assessment
+            const attempts = await assessmentApi.getAssessmentAttempts(assessment.id);
+            attemptCount = attempts.length;
           } catch (error) {
-            console.error(`Failed to fetch questions for assessment ${assessment.id}:`, error);
+            console.error(`Failed to fetch data for assessment ${assessment.id}:`, error);
           }
 
           return {
@@ -123,6 +129,7 @@ const AssessmentManagement: React.FC = () => {
             timeLimit: assessment.durationMinutes,
             isPublished: assessment.isPublished,
             resultsReleased: assessment.resultsReleased || false,
+            attemptCount,
             questions,
             createdAt: assessment.createdAt
           };
@@ -826,6 +833,12 @@ const AssessmentManagement: React.FC = () => {
                       Results Pending
                     </Badge>
                   )}
+                  {(assessment.attemptCount || 0) > 0 && (
+                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300">
+                      <Users className="h-3 w-3 mr-1" />
+                      {assessment.attemptCount} Attempt{assessment.attemptCount === 1 ? '' : 's'}
+                    </Badge>
+                  )}
                   <Badge variant="outline" className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {assessment.timeLimit} min
@@ -865,6 +878,12 @@ const AssessmentManagement: React.FC = () => {
                                 size="icon"
                                 onClick={() => openEditQuestionDialog(assessment, question)}
                                 className="text-muted-foreground hover:text-primary h-7 w-7"
+                                disabled={(assessment.attemptCount || 0) > 0}
+                                title={
+                                  (assessment.attemptCount || 0) > 0
+                                    ? `Cannot edit - ${assessment.attemptCount} student(s) have attempted this assessment`
+                                    : 'Edit this question'
+                                }
                               >
                                 <Edit className="h-3 w-3" />
                               </Button>
@@ -873,7 +892,12 @@ const AssessmentManagement: React.FC = () => {
                                 size="icon"
                                 onClick={() => handleDeleteQuestion(assessment.id, question.id)}
                                 className="text-destructive hover:text-destructive h-7 w-7"
-                                disabled={deletingQuestionId === question.id}
+                                disabled={deletingQuestionId === question.id || (assessment.attemptCount || 0) > 0}
+                                title={
+                                  (assessment.attemptCount || 0) > 0
+                                    ? `Cannot delete - ${assessment.attemptCount} student(s) have attempted this assessment`
+                                    : 'Delete this question'
+                                }
                               >
                                 {deletingQuestionId === question.id ? (
                                   <Loader2 className="h-3 w-3 animate-spin" />
@@ -951,15 +975,31 @@ const AssessmentManagement: React.FC = () => {
                   </div>
                 )}
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full mt-2"
-                  onClick={() => openQuestionDialog(assessment)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Question
-                </Button>
+                {/* Add Question Button */}
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => openQuestionDialog(assessment)}
+                    disabled={(assessment.attemptCount || 0) > 0}
+                    title={
+                      (assessment.attemptCount || 0) > 0
+                        ? `Cannot add questions - ${assessment.attemptCount} student(s) have already attempted this assessment`
+                        : 'Add a new question to this assessment'
+                    }
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Question
+                  </Button>
+                  {(assessment.attemptCount || 0) > 0 && (
+                    <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md">
+                      <p className="text-xs text-orange-700 text-center">
+                        ⚠️ Cannot modify - {assessment.attemptCount} student{assessment.attemptCount === 1 ? '' : 's'} attempted
+                      </p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
             ))
