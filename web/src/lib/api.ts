@@ -369,6 +369,9 @@ export const assessmentApi = {
   
   getStudentAttempts: () => 
     apiClient.get<AssessmentAttempt[]>('/assessments/attempts/student'),
+  
+  getAttemptStatus: (assessmentId: string) => 
+    apiClient.get<{ hasAttempted: boolean; attempt: AssessmentAttempt | null }>(`/assessments/${assessmentId}/attempt-status`),
 };
 
 // Progress APIs

@@ -138,4 +138,14 @@ public class AssessmentsController : ControllerBase
 
     [HttpGet("attempts/{attemptId}/answers")]
     public async Task<IActionResult> GetAttemptAnswers(string attemptId) => Ok(await _assessmentService.GetAttemptAnswersAsync(attemptId));
+
+    [HttpGet("{assessmentId}/attempt-status")]
+    public async Task<IActionResult> GetAttemptStatus(string assessmentId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null) return Unauthorized();
+        
+        var attempt = await _assessmentService.GetAttemptByAssessmentAndStudentAsync(assessmentId, userId);
+        return Ok(new { hasAttempted = attempt != null, attempt });
+    }
 }

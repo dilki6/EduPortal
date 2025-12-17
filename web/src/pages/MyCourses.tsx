@@ -517,11 +517,17 @@ const MyCourses: React.FC = () => {
                       <Button
                         size="default"
                         variant="outline"
-                        onClick={() => navigate(`/my-progress`)}
+                        onClick={() => {
+                          if (card.attempt?.id) {
+                            navigate(`/review-attempt/${card.attempt.id}`);
+                          } else {
+                            navigate('/my-progress');
+                          }
+                        }}
                         className="flex items-center gap-2"
                       >
-                        <Trophy className="h-4 w-4" />
-                        View Results
+                        <FileText className="h-4 w-4" />
+                        View My Answers
                       </Button>
                     )}
                   </div>

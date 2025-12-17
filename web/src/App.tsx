@@ -16,6 +16,7 @@ import ReviewAnswers from "./pages/ReviewAnswers";
 import MyCourses from "./pages/MyCourses";
 import MyProgress from "./pages/MyProgress";
 import AttemptAssessment from "./pages/AttemptAssessment";
+import StudentReviewAttempt from "./pages/StudentReviewAttempt";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -93,6 +94,12 @@ const AppContent = () => {
         <Route path="/attempt-assessment/:assessmentId" element={
           <ProtectedRoute allowedRoles={['student']}>
             <AttemptAssessment />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/review-attempt/:attemptId" element={
+          <ProtectedRoute allowedRoles={['student']}>
+            <StudentReviewAttempt />
           </ProtectedRoute>
         } />
 

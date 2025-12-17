@@ -48,6 +48,25 @@ const AttemptAssessment: React.FC = () => {
       try {
         setLoading(true);
 
+        // First check if student has already attempted this assessment
+        const attemptStatus = await assessmentApi.getAttemptStatus(assessmentId);
+        
+        if (attemptStatus.hasAttempted) {
+          toast({
+            title: 'Assessment Already Attempted',
+            description: 'You have already attempted this assessment. Redirecting to review your answers...',
+            variant: 'default'
+          });
+          setTimeout(() => {
+            if (attemptStatus.attempt) {
+              navigate(`/review-attempt/${attemptStatus.attempt.id}`);
+            } else {
+              navigate('/my-courses');
+            }
+          }, 2000);
+          return;
+        }
+
         // Fetch assessment details
         const assessmentData = await assessmentApi.getById(assessmentId);
         setAssessment(assessmentData);
@@ -150,12 +169,17 @@ const AttemptAssessment: React.FC = () => {
     try {
       setSubmitting(true);
 
-      // Prepare answers for submission
-      const submitAnswers: SubmitAnswerRequest[] = answers.map(answer => ({
-        questionId: answer.questionId,
-        selectedOptionId: answer.selectedOptionId,
-        textAnswer: answer.textAnswer
-      }));
+      // Prepare answers for ALL questions (not just answered ones)
+      const submitAnswers: SubmitAnswerRequest[] = questions.map(question => {
+        const answer = answers.find(a => a.questionId === question.id);
+        return {
+          questionId: question.id,
+          selectedOptionId: answer?.selectedOptionId || undefined,
+          textAnswer: answer?.textAnswer || undefined
+        };
+      });
+
+      console.log('📤 Submitting answers:', submitAnswers);
 
       // Submit the assessment
       const result = await assessmentApi.submitAnswers(attempt.id, submitAnswers);

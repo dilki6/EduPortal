@@ -265,19 +265,45 @@ public class AssessmentService : IAssessmentService
         var assessment = await _context.Assessments.FindAsync(assessmentId);
         if (assessment == null || !assessment.IsPublished) return null;
 
+        // Check if student has already attempted this assessment
+        var existingAttempt = await _context.AssessmentAttempts
+            .FirstOrDefaultAsync(a => a.AssessmentId == assessmentId && a.StudentId == studentId);
+        
+        if (existingAttempt != null)
+        {
+            // Student has already started or completed this assessment
+            return null;
+        }
+
         var attempt = new AssessmentAttempt { AssessmentId = assessmentId, StudentId = studentId };
         _context.AssessmentAttempts.Add(attempt);
         await _context.SaveChangesAsync();
         return await GetAttemptByIdAsync(attempt.Id);
     }
 
+    public async Task<AssessmentAttemptDto?> GetAttemptByAssessmentAndStudentAsync(string assessmentId, string studentId)
+    {
+        var attempt = await _context.AssessmentAttempts
+            .Include(a => a.Assessment)
+            .Include(a => a.Student)
+            .FirstOrDefaultAsync(a => a.AssessmentId == assessmentId && a.StudentId == studentId);
+        
+        return attempt == null ? null : MapToAttemptDto(attempt);
+    }
+
     public async Task<AssessmentAttemptDto?> SubmitAssessmentAsync(string attemptId, SubmitAssessmentRequest request)
     {
+        Console.WriteLine($"📝 Submitting assessment attempt {attemptId} with {request.Answers.Count} answers");
+        
         var attempt = await _context.AssessmentAttempts.Include(a => a.Assessment)
             .ThenInclude(a => a!.Questions).ThenInclude(q => q.Options)
             .FirstOrDefaultAsync(a => a.Id == attemptId);
 
-        if (attempt == null || attempt.Status != AssessmentStatus.InProgress) return null;
+        if (attempt == null || attempt.Status != AssessmentStatus.InProgress)
+        {
+            Console.WriteLine($"❌ Cannot submit: Attempt null={attempt == null}, Status={attempt?.Status}");
+            return null;
+        }
 
         attempt.CompletedAt = DateTime.UtcNow;
         int totalScore = 0, maxScore = 0;
@@ -288,10 +314,28 @@ public class AssessmentService : IAssessmentService
             if (question == null) continue;
 
             maxScore += question.Points;
-            var correctOption = question.Options.FirstOrDefault(o => o.IsCorrect);
-            var isCorrect = correctOption?.Id == answerRequest.SelectedOptionId;
             
-            if (isCorrect) totalScore += question.Points;
+            bool isCorrect = false;
+            int pointsEarned = 0;
+
+            // Check correctness based on question type
+            if (question.Type == QuestionType.MultipleChoice)
+            {
+                var correctOption = question.Options.FirstOrDefault(o => o.IsCorrect);
+                isCorrect = correctOption?.Id == answerRequest.SelectedOptionId;
+                if (isCorrect)
+                {
+                    pointsEarned = question.Points;
+                    totalScore += question.Points;
+                }
+            }
+            else // Text answer - mark as requiring manual grading
+            {
+                // Text answers need manual grading, set points to 0 for now
+                // Teacher can grade later if needed
+                isCorrect = false;
+                pointsEarned = 0;
+            }
 
             _context.Answers.Add(new Answer
             {
@@ -300,13 +344,16 @@ public class AssessmentService : IAssessmentService
                 SelectedOptionId = answerRequest.SelectedOptionId,
                 TextAnswer = answerRequest.TextAnswer,
                 IsCorrect = isCorrect,
-                PointsEarned = isCorrect ? question.Points : 0
+                PointsEarned = pointsEarned
             });
         }
 
         attempt.Score = totalScore;
         attempt.MaxScore = maxScore;
         attempt.Status = AssessmentStatus.Graded;
+        
+        Console.WriteLine($"✅ Graded attempt: Score={totalScore}/{maxScore}, Answers saved={request.Answers.Count}");
+        
         await _context.SaveChangesAsync();
         return await GetAttemptByIdAsync(attemptId);
     }
@@ -328,10 +375,16 @@ public class AssessmentService : IAssessmentService
         return attempt == null ? null : MapToAttemptDto(attempt);
     }
 
-    public async Task<List<AnswerDto>> GetAttemptAnswersAsync(string attemptId) =>
-        (await _context.Answers.Include(a => a.Question).ThenInclude(q => q!.Options)
-            .Where(a => a.AttemptId == attemptId).ToListAsync())
-        .Select(a => new AnswerDto
+    public async Task<List<AnswerDto>> GetAttemptAnswersAsync(string attemptId)
+    {
+        Console.WriteLine($"🔍 Fetching answers for attempt {attemptId}");
+        
+        var answers = await _context.Answers.Include(a => a.Question).ThenInclude(q => q!.Options)
+            .Where(a => a.AttemptId == attemptId).ToListAsync();
+        
+        Console.WriteLine($"📊 Found {answers.Count} answers in database");
+        
+        return answers.Select(a => new AnswerDto
         {
             Id = a.Id,
             QuestionId = a.QuestionId,
@@ -354,6 +407,7 @@ public class AssessmentService : IAssessmentService
             CorrectAnswer = a.Question?.Options.FirstOrDefault(o => o.IsCorrect)?.Text,
             ExpectedAnswer = a.Question?.ExpectedAnswer
         }).ToList();
+    }
 
     private static AssessmentDto MapToAssessmentDto(Assessment assessment)
     {
