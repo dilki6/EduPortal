@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -142,6 +142,15 @@ const Login: React.FC = () => {
                 <p><strong>Teacher:</strong> username: teacher1, password: password123</p>
                 <p><strong>Student:</strong> username: student1, password: password123</p>
               </div>
+            </div>
+
+            <div className="mt-6 text-center">
+              <p className="text-sm text-muted-foreground">
+                Don't have an account?{' '}
+                <Link to="/register" className="text-primary hover:underline font-medium">
+                  Register here
+                </Link>
+              </p>
             </div>
           </CardContent>
         </Card>

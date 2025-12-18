@@ -35,20 +35,29 @@ public class AuthService : IAuthService
 
     public async Task<UserDto?> RegisterAsync(RegisterRequest request)
     {
-        if (await _context.Users.AnyAsync(u => u.Username == request.Username || u.Email == request.Email))
+        // Check if username already exists
+        var existingUser = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+        if (existingUser != null)
+        {
+            Console.WriteLine($"⚠️ Registration failed: Username '{request.Username}' already exists");
             return null;
+        }
 
+        Console.WriteLine($"✅ Creating new {request.Role} user: {request.Username}");
+        
         var user = new User
         {
             Username = request.Username,
             PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
             Name = request.Name,
-            Email = request.Email,
+            Email = $"{request.Username}@eduportal.com",
             Role = request.Role.ToLower() == "teacher" ? UserRole.Teacher : UserRole.Student
         };
 
         _context.Users.Add(user);
         await _context.SaveChangesAsync();
+        
+        Console.WriteLine($"✅ User {request.Username} registered successfully as {user.Role}");
         return MapToUserDto(user);
     }
 

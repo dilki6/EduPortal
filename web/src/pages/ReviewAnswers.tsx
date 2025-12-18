@@ -2,8 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BookOpen, FileText, User, CheckCircle, XCircle, AlertCircle, ChevronDown, Loader2 } from 'lucide-react';
+import { BookOpen, FileText, User, CheckCircle, XCircle, AlertCircle, ChevronDown, Loader2, Sparkles, Zap, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { courseApi, assessmentApi, type Course, type Assessment, type AssessmentAttempt, type Answer } from '@/lib/api';
 
@@ -23,6 +24,11 @@ const ReviewAnswers: React.FC = () => {
   const [loadingAssessments, setLoadingAssessments] = useState(false);
   const [loadingAttempts, setLoadingAttempts] = useState(false);
   const [loadingAnswers, setLoadingAnswers] = useState<Set<string>>(new Set());
+  const [evaluatingAnswers, setEvaluatingAnswers] = useState<Set<string>>(new Set());
+  const [evaluatingAll, setEvaluatingAll] = useState(false);
+  const [manualScores, setManualScores] = useState<Map<string, number>>(new Map());
+  const [savingScores, setSavingScores] = useState(false);
+  const [evaluatedAnswers, setEvaluatedAnswers] = useState<Set<string>>(new Set());
 
   // Fetch courses on mount
   useEffect(() => {
@@ -36,6 +42,7 @@ const ReviewAnswers: React.FC = () => {
       setSelectedAssessment('');
       setAttempts([]);
       setAnswersMap(new Map());
+      setEvaluatedAnswers(new Set());
     }
   }, [selectedCourse]);
 
@@ -45,6 +52,7 @@ const ReviewAnswers: React.FC = () => {
       fetchAttempts(selectedAssessment);
       setAnswersMap(new Map());
       setExpandedStudents(new Set());
+      setEvaluatedAnswers(new Set());
     }
   }, [selectedAssessment]);
 
@@ -157,7 +165,14 @@ const ReviewAnswers: React.FC = () => {
     }
   };
 
-  const getEvaluationColor = (isCorrect: boolean, pointsEarned: number, maxPoints: number) => {
+  const getEvaluationColor = (isCorrect: boolean, pointsEarned: number, maxPoints: number, questionType: string) => {
+    const isTextQuestion = questionType !== 'MultipleChoice' && questionType !== 'TrueFalse';
+    
+    // For text questions with no points earned yet (not graded)
+    if (isTextQuestion && pointsEarned === 0 && maxPoints > 0) {
+      return 'bg-blue-50 border-blue-200'; // Blue for ungraded text questions
+    }
+    
     if (isCorrect || pointsEarned === maxPoints) {
       return 'bg-green-50 border-green-200';
     } else if (pointsEarned > 0) {
@@ -167,13 +182,272 @@ const ReviewAnswers: React.FC = () => {
     }
   };
 
+  const evaluateWithAI = async (answer: Answer) => {
+    try {
+      const result = await assessmentApi.evaluateAnswer({
+        question: answer.questionText,
+        expectedAnswer: answer.expectedAnswer || undefined,
+        studentAnswer: answer.textAnswer || '',
+        maxPoints: answer.questionPoints,
+      });
+      
+      return result.suggestedScore;
+    } catch (error) {
+      console.error('AI evaluation failed, using fallback:', error);
+      
+      // Fallback to simple keyword matching if API fails
+      const studentAnswer = answer.textAnswer?.toLowerCase() || '';
+      const expectedAnswer = answer.expectedAnswer?.toLowerCase() || '';
+      
+      if (!studentAnswer || !expectedAnswer) {
+        return 0;
+      }
+
+      const expectedWords = expectedAnswer.split(/\s+/).filter(w => w.length > 3);
+      const studentWords = studentAnswer.split(/\s+/);
+      
+      let matchCount = 0;
+      expectedWords.forEach(word => {
+        if (studentWords.some(sw => sw.includes(word) || word.includes(sw))) {
+          matchCount++;
+        }
+      });
+
+      const matchPercentage = expectedWords.length > 0 ? matchCount / expectedWords.length : 0;
+      const score = Math.round(matchPercentage * answer.questionPoints);
+      
+      return Math.min(score, answer.questionPoints);
+    }
+  };
+
+  const handleEvaluateSingle = async (answerId: string, answer: Answer) => {
+    try {
+      setEvaluatingAnswers(prev => new Set(prev).add(answerId));
+      
+      const aiScore = await evaluateWithAI(answer);
+      
+      setManualScores(prev => new Map(prev).set(answerId, aiScore));
+      
+      // Mark this answer as evaluated
+      setEvaluatedAnswers(prev => new Set(prev).add(answerId));
+      
+      toast({
+        title: 'AI Evaluation Complete',
+        description: `Suggested score: ${aiScore}/${answer.questionPoints} points`,
+      });
+    } catch (error) {
+      console.error('Failed to evaluate answer:', error);
+      toast({
+        title: 'Evaluation Failed',
+        description: 'Failed to evaluate with AI. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEvaluatingAnswers(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(answerId);
+        return newSet;
+      });
+    }
+  };
+
+  const handleEvaluateAll = async () => {
+    try {
+      setEvaluatingAll(true);
+      
+      const allTextAnswers: Array<{ answerId: string; answer: Answer }> = [];
+      
+      // Collect all text-based answers from all expanded attempts
+      expandedStudents.forEach(attemptId => {
+        const answers = answersMap.get(attemptId) || [];
+        answers.forEach(answer => {
+          const isTextQuestion = answer.questionType !== 'MultipleChoice' && answer.questionType !== 'TrueFalse';
+          // Skip already-evaluated answers
+          if (isTextQuestion && !evaluatedAnswers.has(answer.id)) {
+            allTextAnswers.push({ answerId: answer.id, answer });
+          }
+        });
+      });
+
+      if (allTextAnswers.length === 0) {
+        toast({
+          title: 'No Unevaluated Answers',
+          description: 'All text-based answers have already been evaluated.',
+          variant: 'default',
+        });
+        return;
+      }
+
+      // Evaluate all in parallel
+      const evaluations = await Promise.all(
+        allTextAnswers.map(async ({ answerId, answer }) => {
+          const score = await evaluateWithAI(answer);
+          return { answerId, score };
+        })
+      );
+
+      // Update all scores
+      const newScores = new Map(manualScores);
+      const newEvaluated = new Set(evaluatedAnswers);
+      evaluations.forEach(({ answerId, score }) => {
+        newScores.set(answerId, score);
+        newEvaluated.add(answerId);
+      });
+      setManualScores(newScores);
+      setEvaluatedAnswers(newEvaluated);
+
+      toast({
+        title: 'Bulk Evaluation Complete',
+        description: `Evaluated ${allTextAnswers.length} text answer(s) with AI`,
+      });
+    } catch (error) {
+      console.error('Failed to evaluate all answers:', error);
+      toast({
+        title: 'Bulk Evaluation Failed',
+        description: 'Failed to evaluate answers. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setEvaluatingAll(false);
+    }
+  };
+
+  const handleManualScoreChange = (answerId: string, value: string, maxPoints: number, originalScore: number) => {
+    const numValue = parseFloat(value);
+    if (!isNaN(numValue) && numValue >= 0 && numValue <= maxPoints) {
+      // Only track as modified if different from original
+      if (numValue !== originalScore) {
+        setManualScores(prev => new Map(prev).set(answerId, numValue));
+      } else {
+        // Remove from modified scores if reverted to original
+        setManualScores(prev => {
+          const newMap = new Map(prev);
+          newMap.delete(answerId);
+          return newMap;
+        });
+      }
+    }
+  };
+
+  const handleSaveScores = async () => {
+    if (manualScores.size === 0) {
+      toast({
+        title: 'No Changes',
+        description: 'No scores have been modified.',
+        variant: 'default',
+      });
+      return;
+    }
+
+    try {
+      setSavingScores(true);
+
+      const savePromises = Array.from(manualScores.entries()).map(([answerId, score]) =>
+        assessmentApi.updateAnswerScore(answerId, score)
+      );
+
+      await Promise.all(savePromises);
+
+      toast({
+        title: 'Scores Saved',
+        description: `Successfully updated ${manualScores.size} score(s)`,
+      });
+
+      // Clear manual scores after saving (they're now persisted in DB)
+      setManualScores(new Map());
+      // Clear evaluated state to allow re-evaluation after saving
+      setEvaluatedAnswers(new Set());
+
+      // Refresh the attempts list to show updated total scores
+      if (selectedAssessment) {
+        const attempts = await assessmentApi.getAssessmentAttempts(selectedAssessment);
+        setAttempts(attempts);
+        
+        // Reload answers for expanded students to get fresh data from database
+        const answersToReload = Array.from(expandedStudents);
+        const updatedAnswersMap = new Map(answersMap);
+        
+        for (const attemptId of answersToReload) {
+          const answers = await assessmentApi.getAttemptAnswers(attemptId);
+          updatedAnswersMap.set(attemptId, answers);
+        }
+        
+        setAnswersMap(updatedAnswersMap);
+      }
+    } catch (error) {
+      console.error('Failed to save scores:', error);
+      toast({
+        title: 'Save Failed',
+        description: 'Failed to save scores. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setSavingScores(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <div className="max-w-7xl mx-auto p-6 space-y-6">
         {/* Header */}
-        <div>
-          <h1 className="text-3xl font-bold text-foreground">Review Student Answers</h1>
-          <p className="text-muted-foreground">Evaluate and provide feedback on student submissions</p>
+        <div className="flex justify-between items-center">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">Review Student Answers</h1>
+            <p className="text-muted-foreground">Evaluate and provide feedback on student submissions</p>
+          </div>
+          <div className="flex gap-3">
+            <Button
+              onClick={handleSaveScores}
+              disabled={savingScores || manualScores.size === 0}
+              variant="default"
+            >
+              {savingScores ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Save Scores ({manualScores.size})
+                </>
+              )}
+            </Button>
+            <Button
+              onClick={handleEvaluateAll}
+              disabled={
+                evaluatingAll || 
+                expandedStudents.size === 0 ||
+                // Check if there are any unevaluated text answers
+                (() => {
+                  let hasUnevaluated = false;
+                  expandedStudents.forEach(attemptId => {
+                    const answers = answersMap.get(attemptId) || [];
+                    answers.forEach(answer => {
+                      const isTextQuestion = answer.questionType !== 'MultipleChoice' && answer.questionType !== 'TrueFalse';
+                      if (isTextQuestion && !evaluatedAnswers.has(answer.id)) {
+                        hasUnevaluated = true;
+                      }
+                    });
+                  });
+                  return !hasUnevaluated;
+                })()
+              }
+              className="bg-purple-600 hover:bg-purple-700"
+            >
+              {evaluatingAll ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Evaluating All...
+                </>
+              ) : (
+                <>
+                  <Zap className="mr-2 h-4 w-4" />
+                  Evaluate All with AI
+                </>
+              )}
+            </Button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -291,7 +565,7 @@ const ReviewAnswers: React.FC = () => {
                             return (
                               <div 
                                 key={answer.id} 
-                                className={`p-4 rounded-lg border ${getEvaluationColor(answer.isCorrect, answer.pointsEarned ?? 0, answer.questionPoints)}`}
+                                className={`p-4 rounded-lg border ${getEvaluationColor(answer.isCorrect, answer.pointsEarned ?? 0, answer.questionPoints, answer.questionType)}`}
                               >
                                 {/* Question */}
                                 <div className="mb-4">
@@ -342,16 +616,62 @@ const ReviewAnswers: React.FC = () => {
                                 )}
 
                                 {/* Evaluation Section */}
-                                <div className="flex items-center justify-between">
-                                  <div className="flex items-center gap-2">
-                                    <Badge variant="outline">{answer.questionPoints} points</Badge>
+                                <div className="space-y-3">
+                                  <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
-                                      {getEvaluationIcon(answer.isCorrect, answer.pointsEarned ?? 0, answer.questionPoints)}
-                                      <Badge variant="secondary">
-                                        {answer.pointsEarned ?? 0}/{answer.questionPoints}
-                                      </Badge>
+                                      <Badge variant="outline">{answer.questionPoints} points</Badge>
+                                      <div className="flex items-center gap-2">
+                                        {getEvaluationIcon(answer.isCorrect, answer.pointsEarned ?? 0, answer.questionPoints)}
+                                        <Badge variant="secondary">
+                                          {answer.pointsEarned ?? 0}/{answer.questionPoints}
+                                        </Badge>
+                                      </div>
                                     </div>
                                   </div>
+
+                                  {/* AI Grading for Text Questions */}
+                                  {!isMCQ && (
+                                    <div className="flex items-center gap-3 pt-2 border-t">
+                                      <div className="flex items-center gap-2 flex-1">
+                                        <label className="text-sm font-medium whitespace-nowrap">Manual Score:</label>
+                                        <Input
+                                          type="number"
+                                          min={0}
+                                          max={answer.questionPoints}
+                                          step={0.5}
+                                          value={manualScores.get(answer.id) ?? answer.pointsEarned ?? 0}
+                                          onChange={(e) => handleManualScoreChange(answer.id, e.target.value, answer.questionPoints, answer.pointsEarned ?? 0)}
+                                          className="w-24"
+                                          placeholder="0"
+                                        />
+                                        <span className="text-sm text-muted-foreground">/ {answer.questionPoints}</span>
+                                      </div>
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleEvaluateSingle(answer.id, answer)}
+                                        disabled={evaluatingAnswers.has(answer.id) || evaluatedAnswers.has(answer.id)}
+                                        className="border-purple-200 hover:bg-purple-50"
+                                      >
+                                        {evaluatingAnswers.has(answer.id) ? (
+                                          <>
+                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                                            Evaluating...
+                                          </>
+                                        ) : evaluatedAnswers.has(answer.id) ? (
+                                          <>
+                                            <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                                            AI Evaluated
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Sparkles className="mr-2 h-4 w-4 text-purple-600" />
+                                            Evaluate with AI
+                                          </>
+                                        )}
+                                      </Button>
+                                    </div>
+                                  )}
                                 </div>
                               </div>
                             );

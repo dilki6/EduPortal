@@ -8,7 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { FileText, Plus, Edit, Trash2, Clock, Users, Loader2 } from 'lucide-react';
+import { FileText, Plus, Edit, Trash2, Clock, Users, Loader2, Eye, EyeOff, CheckCircle2, Circle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { courseApi, assessmentApi, Course, Assessment as ApiAssessment, Question as ApiQuestion, CreateAssessmentRequest, CreateQuestionRequest } from '@/lib/api';
 
@@ -31,6 +31,8 @@ interface Assessment {
   questions: Question[];
   timeLimit: number; // in minutes
   isPublished: boolean;
+  resultsReleased?: boolean;
+  attemptCount?: number;
   createdAt: string;
 }
 
@@ -47,6 +49,8 @@ const AssessmentManagement: React.FC = () => {
   const [isSaving, setIsSaving] = useState(false);
   const [deletingAssessmentId, setDeletingAssessmentId] = useState<string | null>(null);
   const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
+  const [publishingAssessmentId, setPublishingAssessmentId] = useState<string | null>(null);
+  const [releasingResultsId, setReleasingResultsId] = useState<string | null>(null);
 
   // Form states
   const [assessmentTitle, setAssessmentTitle] = useState('');
@@ -89,13 +93,14 @@ const AssessmentManagement: React.FC = () => {
       setCourses(fetchedCourses);
 
       // Transform API assessments to local format with course names
-      // Fetch questions for each assessment
+      // Fetch questions and attempts for each assessment
       const assessmentsWithQuestions = await Promise.all(
         fetchedAssessments.map(async (assessment) => {
           const course = fetchedCourses.find(c => c.id === assessment.courseId);
           
           // Fetch questions for this assessment
           let questions: Question[] = [];
+          let attemptCount = 0;
           try {
             const apiQuestions = await assessmentApi.getQuestions(assessment.id);
             questions = apiQuestions.map(q => ({
@@ -107,8 +112,12 @@ const AssessmentManagement: React.FC = () => {
               modelAnswer: (q.type === 'ShortAnswer' || q.type === 'Essay') ? '' : undefined,
               points: q.points
             }));
+
+            // Fetch attempts count for this assessment
+            const attempts = await assessmentApi.getAssessmentAttempts(assessment.id);
+            attemptCount = attempts.length;
           } catch (error) {
-            console.error(`Failed to fetch questions for assessment ${assessment.id}:`, error);
+            console.error(`Failed to fetch data for assessment ${assessment.id}:`, error);
           }
 
           return {
@@ -119,6 +128,8 @@ const AssessmentManagement: React.FC = () => {
             courseName: course?.name || 'Unknown Course',
             timeLimit: assessment.durationMinutes,
             isPublished: assessment.isPublished,
+            resultsReleased: assessment.resultsReleased || false,
+            attemptCount,
             questions,
             createdAt: assessment.createdAt
           };
@@ -468,6 +479,104 @@ const AssessmentManagement: React.FC = () => {
     }
   };
 
+  const handleTogglePublish = async (assessmentId: string, currentStatus: boolean) => {
+    try {
+      setPublishingAssessmentId(assessmentId);
+      
+      // Optimistically update UI
+      setAssessments(prevAssessments => 
+        prevAssessments.map(a => 
+          a.id === assessmentId 
+            ? { ...a, isPublished: !currentStatus } 
+            : a
+        )
+      );
+
+      // Call appropriate API endpoint
+      if (currentStatus) {
+        await assessmentApi.unpublish(assessmentId);
+        toast({
+          title: "Success",
+          description: "Assessment unpublished successfully. Students will no longer see this assessment."
+        });
+      } else {
+        await assessmentApi.publish(assessmentId);
+        toast({
+          title: "Success",
+          description: "Assessment published successfully. Students can now see and attempt this assessment."
+        });
+      }
+    } catch (error) {
+      console.error('Failed to toggle publish status:', error);
+      
+      // Restore previous state on error
+      setAssessments(prevAssessments => 
+        prevAssessments.map(a => 
+          a.id === assessmentId 
+            ? { ...a, isPublished: currentStatus } 
+            : a
+        )
+      );
+      
+      toast({
+        title: "Error",
+        description: "Failed to update assessment status. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setPublishingAssessmentId(null);
+    }
+  };
+
+  const handleToggleResultsRelease = async (assessmentId: string, currentStatus: boolean) => {
+    try {
+      setReleasingResultsId(assessmentId);
+      
+      // Optimistically update UI
+      setAssessments(prevAssessments => 
+        prevAssessments.map(a => 
+          a.id === assessmentId 
+            ? { ...a, resultsReleased: !currentStatus } 
+            : a
+        )
+      );
+
+      // Call appropriate API endpoint
+      if (currentStatus) {
+        await assessmentApi.withdrawResults(assessmentId);
+        toast({
+          title: "Success",
+          description: "Results withdrawn. Students can no longer view their answers and scores."
+        });
+      } else {
+        await assessmentApi.releaseResults(assessmentId);
+        toast({
+          title: "Success",
+          description: "Results released! Students can now view their answers and scores."
+        });
+      }
+    } catch (error) {
+      console.error('Failed to toggle results release:', error);
+      
+      // Restore previous state on error
+      setAssessments(prevAssessments => 
+        prevAssessments.map(a => 
+          a.id === assessmentId 
+            ? { ...a, resultsReleased: currentStatus } 
+            : a
+        )
+      );
+      
+      toast({
+        title: "Error",
+        description: "Failed to update results release status. Please try again.",
+        variant: "destructive"
+      });
+    } finally {
+      setReleasingResultsId(null);
+    }
+  };
+
   const resetAssessmentForm = () => {
     setAssessmentTitle('');
     setAssessmentDescription('');
@@ -644,19 +753,55 @@ const AssessmentManagement: React.FC = () => {
                 <CardHeader>
                   <div className="flex items-start justify-between">
                     <FileText className="h-8 w-8 text-primary" />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDeleteAssessment(assessment.id, assessment.title)}
-                      className="text-destructive hover:text-destructive"
-                      disabled={deletingAssessmentId === assessment.id}
-                    >
-                      {deletingAssessmentId === assessment.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
+                    <div className="flex gap-2">
+                      <Button
+                        variant={assessment.isPublished ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleTogglePublish(assessment.id, assessment.isPublished)}
+                        disabled={publishingAssessmentId === assessment.id}
+                        className="flex items-center gap-2"
+                      >
+                        {publishingAssessmentId === assessment.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : assessment.isPublished ? (
+                          <Eye className="h-4 w-4" />
+                        ) : (
+                          <EyeOff className="h-4 w-4" />
+                        )}
+                        {assessment.isPublished ? 'Published' : 'Unpublished'}
+                      </Button>
+                      {assessment.isPublished && (
+                        <Button
+                          variant={assessment.resultsReleased ? "default" : "outline"}
+                          size="sm"
+                          onClick={() => handleToggleResultsRelease(assessment.id, assessment.resultsReleased || false)}
+                          disabled={releasingResultsId === assessment.id}
+                          className="flex items-center gap-2"
+                        >
+                          {releasingResultsId === assessment.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : assessment.resultsReleased ? (
+                            <CheckCircle2 className="h-4 w-4" />
+                          ) : (
+                            <Circle className="h-4 w-4" />
+                          )}
+                          {assessment.resultsReleased ? 'Results Released' : 'Release Results'}
+                        </Button>
                       )}
-                    </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteAssessment(assessment.id, assessment.title)}
+                        className="text-destructive hover:text-destructive"
+                        disabled={deletingAssessmentId === assessment.id}
+                      >
+                        {deletingAssessmentId === assessment.id ? (
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                        ) : (
+                          <Trash2 className="h-4 w-4" />
+                        )}
+                      </Button>
+                    </div>
                   </div>
                   <CardTitle className="text-xl">{assessment.title}</CardTitle>
                   <CardDescription>{assessment.description}</CardDescription>
@@ -664,6 +809,36 @@ const AssessmentManagement: React.FC = () => {
               <CardContent className="space-y-4">
                 <div className="flex flex-wrap gap-2">
                   <Badge variant="secondary">{assessment.courseName}</Badge>
+                  {assessment.isPublished && (
+                    <Badge variant="default" className="bg-green-500">
+                      <Eye className="h-3 w-3 mr-1" />
+                      Visible to Students
+                    </Badge>
+                  )}
+                  {!assessment.isPublished && (
+                    <Badge variant="secondary" className="bg-gray-500">
+                      <EyeOff className="h-3 w-3 mr-1" />
+                      Hidden from Students
+                    </Badge>
+                  )}
+                  {assessment.isPublished && assessment.resultsReleased && (
+                    <Badge variant="default" className="bg-blue-500">
+                      <CheckCircle2 className="h-3 w-3 mr-1" />
+                      Results Released
+                    </Badge>
+                  )}
+                  {assessment.isPublished && !assessment.resultsReleased && (
+                    <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">
+                      <Circle className="h-3 w-3 mr-1" />
+                      Results Pending
+                    </Badge>
+                  )}
+                  {(assessment.attemptCount || 0) > 0 && (
+                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300">
+                      <Users className="h-3 w-3 mr-1" />
+                      {assessment.attemptCount} Attempt{assessment.attemptCount === 1 ? '' : 's'}
+                    </Badge>
+                  )}
                   <Badge variant="outline" className="flex items-center gap-1">
                     <Clock className="h-3 w-3" />
                     {assessment.timeLimit} min
@@ -678,62 +853,153 @@ const AssessmentManagement: React.FC = () => {
                 </div>
 
                 {assessment.questions.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Questions:</p>
-                    <div className="space-y-2 max-h-32 overflow-y-auto">
+                  <div className="border-t pt-4">
+                    <div className="flex items-center justify-between mb-3">
+                      <p className="text-sm font-semibold text-foreground">Questions ({assessment.questions.length})</p>
+                      <Badge variant="outline" className="text-xs">
+                        Total: {getTotalPoints(assessment)} points
+                      </Badge>
+                    </div>
+                    <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
                       {assessment.questions.map((question, index) => (
-                        <div key={question.id} className="flex items-center justify-between p-2 bg-muted/30 rounded">
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm truncate">
-                              {index + 1}. {question.question}
-                            </p>
-                            <div className="flex gap-2 mt-1">
-                              <Badge variant={question.type === 'mcq' ? 'default' : 'secondary'} className="text-xs">
-                                {question.type === 'mcq' ? 'Multiple Choice' : 'Text Answer'}
-                              </Badge>
-                              <Badge variant="outline" className="text-xs">
-                                {question.points} pts
-                              </Badge>
+                        <div key={question.id} className="p-3 bg-muted/50 rounded-lg border border-border">
+                          <div className="flex items-start justify-between gap-2 mb-2">
+                            <div className="flex-1">
+                              <div className="flex items-start gap-2">
+                                <Badge variant="outline" className="text-xs shrink-0">Q{index + 1}</Badge>
+                                <p className="text-sm font-medium text-foreground">
+                                  {question.question}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex gap-1 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => openEditQuestionDialog(assessment, question)}
+                                className="text-muted-foreground hover:text-primary h-7 w-7"
+                                disabled={(assessment.attemptCount || 0) > 0}
+                                title={
+                                  (assessment.attemptCount || 0) > 0
+                                    ? `Cannot edit - ${assessment.attemptCount} student(s) have attempted this assessment`
+                                    : 'Edit this question'
+                                }
+                              >
+                                <Edit className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteQuestion(assessment.id, question.id)}
+                                className="text-destructive hover:text-destructive h-7 w-7"
+                                disabled={deletingQuestionId === question.id || (assessment.attemptCount || 0) > 0}
+                                title={
+                                  (assessment.attemptCount || 0) > 0
+                                    ? `Cannot delete - ${assessment.attemptCount} student(s) have attempted this assessment`
+                                    : 'Delete this question'
+                                }
+                              >
+                                {deletingQuestionId === question.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <Trash2 className="h-3 w-3" />
+                                )}
+                              </Button>
                             </div>
                           </div>
-                          <div className="flex gap-1">
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => openEditQuestionDialog(assessment, question)}
-                              className="text-muted-foreground hover:text-primary ml-2"
-                            >
-                              <Edit className="h-3 w-3" />
-                            </Button>
-                            <Button
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => handleDeleteQuestion(assessment.id, question.id)}
-                              className="text-destructive hover:text-destructive"
-                              disabled={deletingQuestionId === question.id}
-                            >
-                              {deletingQuestionId === question.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <Trash2 className="h-3 w-3" />
-                              )}
-                            </Button>
+                          
+                          {/* Question Type and Points */}
+                          <div className="flex gap-2 mb-2">
+                            <Badge variant={question.type === 'mcq' ? 'default' : 'secondary'} className="text-xs">
+                              {question.type === 'mcq' ? 'Multiple Choice' : 'Text Answer'}
+                            </Badge>
+                            <Badge variant="outline" className="text-xs">
+                              {question.points} {question.points === 1 ? 'point' : 'points'}
+                            </Badge>
                           </div>
+
+                          {/* MCQ Options */}
+                          {question.type === 'mcq' && question.options && question.options.length > 0 && (
+                            <div className="mt-2 space-y-1.5">
+                              <p className="text-xs font-medium text-muted-foreground mb-1">Options:</p>
+                              {question.options.map((option, optIndex) => (
+                                <div 
+                                  key={optIndex} 
+                                  className={`flex items-start gap-2 text-xs p-2 rounded ${
+                                    option === question.correctAnswer 
+                                      ? 'bg-green-50 border border-green-200' 
+                                      : 'bg-background border border-border'
+                                  }`}
+                                >
+                                  {option === question.correctAnswer ? (
+                                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600 mt-0.5 shrink-0" />
+                                  ) : (
+                                    <Circle className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                                  )}
+                                  <span className={option === question.correctAnswer ? 'text-green-900 font-medium' : 'text-foreground'}>
+                                    {String.fromCharCode(65 + optIndex)}. {option}
+                                  </span>
+                                  {option === question.correctAnswer && (
+                                    <Badge variant="outline" className="ml-auto text-xs bg-green-100 text-green-700 border-green-300">
+                                      Correct
+                                    </Badge>
+                                  )}
+                                </div>
+                              ))}
+                            </div>
+                          )}
+
+                          {/* Text Answer Model */}
+                          {question.type === 'text' && question.modelAnswer && (
+                            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
+                              <p className="text-xs font-medium text-blue-700 mb-1">Model Answer:</p>
+                              <p className="text-xs text-blue-900">{question.modelAnswer}</p>
+                            </div>
+                          )}
                         </div>
                       ))}
                     </div>
                   </div>
                 )}
 
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
-                  onClick={() => openQuestionDialog(assessment)}
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Question
-                </Button>
+                {/* Empty State for Questions */}
+                {assessment.questions.length === 0 && (
+                  <div className="border-t pt-4">
+                    <div className="text-center py-8 bg-muted/30 rounded-lg border-2 border-dashed">
+                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
+                      <h4 className="text-sm font-medium text-foreground mb-1">No Questions Yet</h4>
+                      <p className="text-xs text-muted-foreground mb-4">
+                        Start building this assessment by adding questions
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Add Question Button */}
+                <div className="relative">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="w-full mt-2"
+                    onClick={() => openQuestionDialog(assessment)}
+                    disabled={(assessment.attemptCount || 0) > 0}
+                    title={
+                      (assessment.attemptCount || 0) > 0
+                        ? `Cannot add questions - ${assessment.attemptCount} student(s) have already attempted this assessment`
+                        : 'Add a new question to this assessment'
+                    }
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Add Question
+                  </Button>
+                  {(assessment.attemptCount || 0) > 0 && (
+                    <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md">
+                      <p className="text-xs text-orange-700 text-center">
+                        ⚠️ Cannot modify - {assessment.attemptCount} student{assessment.attemptCount === 1 ? '' : 's'} attempted
+                      </p>
+                    </div>
+                  )}
+                </div>
               </CardContent>
             </Card>
             ))

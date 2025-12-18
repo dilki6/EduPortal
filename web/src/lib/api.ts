@@ -112,8 +112,7 @@ export interface RegisterRequest {
   username: string;
   password: string;
   name: string;
-  email: string;
-  role: UserRole;
+  role: string;
 }
 
 export interface Course {
@@ -164,12 +163,16 @@ export interface StudentDto {
 export interface Assessment {
   id: string;
   courseId: string;
+  courseName?: string;
   title: string;
   description: string;
   durationMinutes: number;
   isPublished: boolean;
+  resultsReleased?: boolean;
   dueDate?: string;
   createdAt: string;
+  questionCount?: number;
+  totalPoints?: number;
 }
 
 export interface CreateAssessmentRequest {
@@ -214,6 +217,8 @@ export interface AssessmentAttempt {
   id: string;
   assessmentId: string;
   assessmentTitle: string;
+  courseId: string;
+  courseName: string;
   studentId: string;
   studentName: string;
   startedAt: string;
@@ -221,6 +226,7 @@ export interface AssessmentAttempt {
   score: number;
   maxScore: number;
   status: AttemptStatus | string; // Allow both enum and string from backend
+  resultsReleased?: boolean;
 }
 
 export interface Answer {
@@ -250,9 +256,20 @@ export interface SubmitAnswerRequest {
 export interface StudentProgress {
   studentId: string;
   studentName: string;
-  coursesEnrolled: number;
+  totalCourses: number;
   completedAssessments: number;
+  pendingAssessments: number;
   averageScore: number;
+  courseProgress: CourseProgressDto[];
+}
+
+export interface CourseProgressDto {
+  courseId: string;
+  courseName: string;
+  progress: number;
+  completedAssessments: number;
+  totalAssessments: number;
+  averageScore?: number;
 }
 
 // ==================== API FUNCTIONS ====================
@@ -263,7 +280,7 @@ export const authApi = {
     apiClient.post<LoginResponse>('/auth/login', data),
   
   register: (data: RegisterRequest) => 
-    apiClient.post<LoginResponse>('/auth/register', data),
+    apiClient.post<User>('/auth/register', data),
   
   getMe: () => 
     apiClient.get<User>('/auth/me'),
@@ -329,7 +346,31 @@ export const assessmentApi = {
     apiClient.delete<void>(`/assessments/${id}`),
   
   publish: (id: string) => 
-    apiClient.put<Assessment>(`/assessments/${id}/publish`, {}),
+    apiClient.post<Assessment>(`/assessments/${id}/publish`, {}),
+  
+  unpublish: (id: string) => 
+    apiClient.post<Assessment>(`/assessments/${id}/unpublish`, {}),
+  
+  releaseResults: (id: string) => 
+    apiClient.post<{ message: string }>(`/assessments/${id}/release-results`, {}),
+  
+  withdrawResults: (id: string) => 
+    apiClient.post<{ message: string }>(`/assessments/${id}/withdraw-results`, {}),
+  
+  updateAnswerScore: (answerId: string, score: number) =>
+    apiClient.put<{ message: string }>(`/assessments/answers/${answerId}/score`, { score }),
+  
+  evaluateAnswer: (data: {
+    question: string;
+    expectedAnswer?: string;
+    studentAnswer: string;
+    maxPoints: number;
+  }) =>
+    apiClient.post<{
+      suggestedScore: number;
+      feedback: string;
+      confidence: number;
+    }>('/assessments/evaluate', data),
   
   getQuestions: (assessmentId: string) => 
     apiClient.get<Question[]>(`/assessments/${assessmentId}/questions`),
@@ -363,15 +404,21 @@ export const assessmentApi = {
   
   getStudentAttempts: () => 
     apiClient.get<AssessmentAttempt[]>('/assessments/attempts/student'),
+  
+  getAttemptStatus: (assessmentId: string) => 
+    apiClient.get<{ hasAttempted: boolean; attempt: AssessmentAttempt | null }>(`/assessments/${assessmentId}/attempt-status`),
 };
 
 // Progress APIs
 export const progressApi = {
-  getMyProgress: () => 
-    apiClient.get<StudentProgress>('/progress/my'),
+  getStudentProgress: () => 
+    apiClient.get<StudentProgress>('/progress/student'),
   
   getCourseProgress: (courseId: string) => 
-    apiClient.get<StudentProgress[]>(`/progress/course/${courseId}`),
+    apiClient.get<CourseProgressDto>(`/progress/student/courses/${courseId}`),
+  
+  getAllCourseProgress: () =>
+    apiClient.get<CourseProgressDto[]>('/progress/student/courses'),
 };
 
 export default apiClient;

@@ -12,10 +12,12 @@ namespace EduPortal.Api.Controllers;
 public class AssessmentsController : ControllerBase
 {
     private readonly IAssessmentService _assessmentService;
+    private readonly IAiEvaluationService _aiEvaluationService;
 
-    public AssessmentsController(IAssessmentService assessmentService)
+    public AssessmentsController(IAssessmentService assessmentService, IAiEvaluationService aiEvaluationService)
     {
         _assessmentService = assessmentService;
+        _aiEvaluationService = aiEvaluationService;
     }
 
     [HttpGet("my-teaching")]
@@ -84,6 +86,30 @@ public class AssessmentsController : ControllerBase
         return result ? Ok(new { message = "Assessment published successfully" }) : NotFound(new { message = "Assessment not found" });
     }
 
+    [HttpPost("{id}/unpublish")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> UnpublishAssessment(string id)
+    {
+        var result = await _assessmentService.UnpublishAssessmentAsync(id);
+        return result ? Ok(new { message = "Assessment unpublished successfully" }) : NotFound(new { message = "Assessment not found" });
+    }
+
+    [HttpPost("{id}/release-results")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> ReleaseResults(string id)
+    {
+        var result = await _assessmentService.ReleaseResultsAsync(id);
+        return result ? Ok(new { message = "Results released successfully" }) : NotFound(new { message = "Assessment not found" });
+    }
+
+    [HttpPost("{id}/withdraw-results")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> WithdrawResults(string id)
+    {
+        var result = await _assessmentService.WithdrawResultsAsync(id);
+        return result ? Ok(new { message = "Results withdrawn successfully" }) : NotFound(new { message = "Assessment not found" });
+    }
+
     [HttpDelete("{id}")]
     [Authorize(Roles = "Teacher")]
     public async Task<IActionResult> DeleteAssessment(string id)
@@ -129,5 +155,62 @@ public class AssessmentsController : ControllerBase
     }
 
     [HttpGet("attempts/{attemptId}/answers")]
-    public async Task<IActionResult> GetAttemptAnswers(string attemptId) => Ok(await _assessmentService.GetAttemptAnswersAsync(attemptId));
+    public async Task<IActionResult> GetAttemptAnswers(string attemptId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        var userRole = User.FindFirstValue(ClaimTypes.Role);
+        
+        if (userId == null) return Unauthorized();
+        
+        var attempt = await _assessmentService.GetAttemptByIdAsync(attemptId);
+        if (attempt == null) return NotFound(new { message = "Attempt not found" });
+        
+        // Teachers can always view answers
+        // Students can only view if results are released
+        if (userRole != "Teacher" && !attempt.ResultsReleased)
+        {
+            return Forbid();
+        }
+        
+        return Ok(await _assessmentService.GetAttemptAnswersAsync(attemptId));
+    }
+
+    [HttpGet("{assessmentId}/attempt-status")]
+    public async Task<IActionResult> GetAttemptStatus(string assessmentId)
+    {
+        var userId = User.FindFirstValue(ClaimTypes.NameIdentifier);
+        if (userId == null) return Unauthorized();
+        
+        var attempt = await _assessmentService.GetAttemptByAssessmentAndStudentAsync(assessmentId, userId);
+        return Ok(new { hasAttempted = attempt != null, attempt });
+    }
+
+    [HttpPut("answers/{answerId}/score")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> UpdateAnswerScore(string answerId, [FromBody] UpdateScoreDto dto)
+    {
+        var result = await _assessmentService.UpdateAnswerScoreAsync(answerId, dto.Score);
+        return result ? Ok(new { message = "Score updated successfully" }) : NotFound(new { message = "Answer not found" });
+    }
+
+    [HttpPost("evaluate")]
+    [Authorize(Roles = "Teacher")]
+    public async Task<IActionResult> EvaluateAnswer([FromBody] EvaluateAnswerRequest request)
+    {
+        if (string.IsNullOrEmpty(request.Question) || 
+            string.IsNullOrEmpty(request.StudentAnswer) || 
+            request.MaxPoints <= 0)
+        {
+            return BadRequest(new { message = "Invalid request data" });
+        }
+
+        var result = await _aiEvaluationService.EvaluateAnswerAsync(
+            request.Question,
+            request.ExpectedAnswer ?? "",
+            request.StudentAnswer,
+            request.MaxPoints
+        );
+
+        return Ok(result);
+    }
 }

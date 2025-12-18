@@ -28,7 +28,7 @@ public class AuthController : ControllerBase
     public async Task<IActionResult> Register([FromBody] RegisterRequest request)
     {
         var result = await _authService.RegisterAsync(request);
-        return result == null ? BadRequest(new { message = "Username or email already exists" }) : Ok(result);
+        return result == null ? BadRequest(new { message = "Username already exists. Please choose a different username." }) : Ok(result);
     }
 
     [HttpGet("user/{userId}")]

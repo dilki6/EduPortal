@@ -11,13 +11,19 @@ import {
   GraduationCap,
   Home
 } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 const Navbar: React.FC = () => {
   const { user, logout } = useAuth();
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleLogout = () => {
     logout();
+    toast({
+      title: "Logged out",
+      description: "You have been successfully logged out",
+    });
     navigate('/login', { replace: true });
   };
 

@@ -1,55 +1,94 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
-import { BookOpen, FileText, BarChart3, Clock, CheckCircle, AlertCircle } from 'lucide-react';
+import { BookOpen, FileText, BarChart3, Clock, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { progressApi, courseApi, assessmentApi } from '@/lib/api';
+import type { StudentProgress, CourseProgressDto, AssessmentAttempt, Course } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
 const StudentDashboard: React.FC = () => {
-  // Mock data - in real app, this would come from an API
-  const stats = {
-    enrolledCourses: 3,
-    completedAssessments: 8,
-    pendingAssessments: 4,
-    averageScore: 85
+  const { toast } = useToast();
+  const [loading, setLoading] = useState(true);
+  const [progressData, setProgressData] = useState<StudentProgress | null>(null);
+  const [enrolledCourses, setEnrolledCourses] = useState<Course[]>([]);
+  const [recentAttempts, setRecentAttempts] = useState<AssessmentAttempt[]>([]);
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
+
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [progress, courses, attempts] = await Promise.all([
+        progressApi.getStudentProgress(),
+        courseApi.getMyEnrolledCourses(),
+        assessmentApi.getStudentAttempts()
+      ]);
+      
+      setProgressData(progress);
+      setEnrolledCourses(courses);
+      setRecentAttempts(attempts.slice(0, 4)); // Get latest 4 attempts
+    } catch (error: any) {
+      console.error('Failed to fetch dashboard data:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load dashboard data',
+        variant: 'destructive'
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
-  const enrolledCourses = [
-    { 
-      id: 1, 
-      name: 'Advanced Mathematics', 
-      progress: 75, 
-      nextAssessment: 'Calculus Quiz',
-      dueDate: 'Tomorrow'
-    },
-    { 
-      id: 2, 
-      name: 'Physics Fundamentals', 
-      progress: 60, 
-      nextAssessment: 'Motion Problems',
-      dueDate: '3 days'
-    },
-    { 
-      id: 3, 
-      name: 'Chemistry Lab', 
-      progress: 90, 
-      nextAssessment: 'Organic Chemistry Test',
-      dueDate: '1 week'
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" />
+          <p className="text-muted-foreground">Loading dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
+  const stats = {
+    enrolledCourses: progressData?.totalCourses || 0,
+    completedAssessments: progressData?.completedAssessments || 0,
+    pendingAssessments: progressData?.pendingAssessments || 0,
+    averageScore: progressData?.averageScore || 0
+  };
+
+  // Get courses with their progress from progressData
+  const coursesWithProgress = enrolledCourses.map(course => {
+    const courseProgress = progressData?.courseProgress.find(cp => cp.courseId === course.id);
+    return {
+      ...course,
+      progress: courseProgress?.progress || 0,
+      completedAssessments: courseProgress?.completedAssessments || 0,
+      totalAssessments: courseProgress?.totalAssessments || 0,
+      averageScore: courseProgress?.averageScore || 0
+    };
+  });
+
+  // Get upcoming assessments from enrolled courses
+  const getUpcomingDeadlines = () => {
+    // This would need assessment data with due dates - placeholder for now
+    return [];
+  };
+
+  const getAssessmentStatus = (attempt: AssessmentAttempt) => {
+    if (attempt.status === 'Completed' && attempt.resultsReleased) {
+      return 'completed';
+    } else if (attempt.status === 'Completed' && !attempt.resultsReleased) {
+      return 'pending';
+    } else if (attempt.status === 'InProgress') {
+      return 'in-progress';
     }
-  ];
-
-  const recentAssessments = [
-    { id: 1, course: 'Advanced Mathematics', title: 'Algebra Test', score: 92, status: 'completed' },
-    { id: 2, course: 'Physics Fundamentals', title: 'Mechanics Quiz', score: 78, status: 'completed' },
-    { id: 3, course: 'Chemistry Lab', title: 'Periodic Table', score: null, status: 'pending' },
-    { id: 4, course: 'Advanced Mathematics', title: 'Geometry Assignment', score: null, status: 'overdue' }
-  ];
-
-  const upcomingDeadlines = [
-    { id: 1, course: 'Advanced Mathematics', title: 'Calculus Quiz', dueDate: 'Tomorrow', priority: 'high' },
-    { id: 2, course: 'Physics Fundamentals', title: 'Motion Problems', dueDate: '3 days', priority: 'medium' },
-    { id: 3, course: 'Chemistry Lab', title: 'Lab Report', dueDate: '1 week', priority: 'low' }
-  ];
+    return 'not-started';
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -117,24 +156,42 @@ const StudentDashboard: React.FC = () => {
               <CardDescription>Your enrolled courses and progress</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {enrolledCourses.map((course) => (
-                <div key={course.id} className="space-y-3 p-4 bg-muted/30 rounded-lg">
-                  <div className="flex items-center justify-between">
-                    <h4 className="font-medium text-foreground">{course.name}</h4>
-                    <span className="text-sm text-muted-foreground">{course.progress}%</span>
-                  </div>
-                  <Progress value={course.progress} className="h-2" />
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground">Next: {course.nextAssessment}</span>
-                    <span className="text-accent font-medium">Due: {course.dueDate}</span>
-                  </div>
+              {coursesWithProgress.length > 0 ? (
+                <>
+                  {coursesWithProgress.slice(0, 3).map((course) => (
+                    <div key={course.id} className="space-y-3 p-4 bg-muted/30 rounded-lg">
+                      <div className="flex items-center justify-between">
+                        <h4 className="font-medium text-foreground">{course.name}</h4>
+                        <span className="text-sm text-muted-foreground">{Math.round(course.progress)}%</span>
+                      </div>
+                      <Progress value={course.progress} className="h-2" />
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground">
+                          {course.completedAssessments} of {course.totalAssessments} assessments completed
+                        </span>
+                        {course.averageScore > 0 && (
+                          <span className="text-primary font-medium">Avg: {Math.round(course.averageScore)}%</span>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <Link to="/my-courses">
+                    <Button variant="outline" className="w-full">
+                      View All Courses
+                    </Button>
+                  </Link>
+                </>
+              ) : (
+                <div className="text-center py-8">
+                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">No enrolled courses yet</p>
+                  <Link to="/my-courses">
+                    <Button variant="outline" className="mt-4">
+                      Browse Courses
+                    </Button>
+                  </Link>
                 </div>
-              ))}
-              <Link to="/my-courses">
-                <Button variant="outline" className="w-full">
-                  View All Courses
-                </Button>
-              </Link>
+              )}
             </CardContent>
           </Card>
 
@@ -145,37 +202,49 @@ const StudentDashboard: React.FC = () => {
               <CardDescription>Your latest assessment results</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
-              {recentAssessments.map((assessment) => (
-                <div key={assessment.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <div>
-                    <h4 className="font-medium text-foreground">{assessment.title}</h4>
-                    <p className="text-sm text-muted-foreground">{assessment.course}</p>
-                  </div>
-                  <div className="text-right">
-                    {assessment.status === 'completed' && (
-                      <>
-                        <div className="text-lg font-bold text-secondary">{assessment.score}%</div>
-                        <div className="flex items-center text-xs text-secondary">
-                          <CheckCircle className="h-3 w-3 mr-1" />
-                          Completed
-                        </div>
-                      </>
-                    )}
-                    {assessment.status === 'pending' && (
-                      <div className="flex items-center text-xs text-accent">
-                        <Clock className="h-3 w-3 mr-1" />
-                        Pending Review
+              {recentAttempts.length > 0 ? (
+                recentAttempts.map((attempt) => {
+                  const status = getAssessmentStatus(attempt);
+                  const percentage = attempt.maxScore > 0 ? Math.round((attempt.score / attempt.maxScore) * 100) : 0;
+                  
+                  return (
+                    <div key={attempt.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-foreground">{attempt.assessmentTitle}</h4>
+                        <p className="text-sm text-muted-foreground">{attempt.courseName}</p>
                       </div>
-                    )}
-                    {assessment.status === 'overdue' && (
-                      <div className="flex items-center text-xs text-destructive">
-                        <AlertCircle className="h-3 w-3 mr-1" />
-                        Overdue
+                      <div className="text-right">
+                        {status === 'completed' && (
+                          <>
+                            <div className="text-lg font-bold text-secondary">{percentage}%</div>
+                            <div className="flex items-center text-xs text-secondary">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Completed
+                            </div>
+                          </>
+                        )}
+                        {status === 'pending' && (
+                          <div className="flex items-center text-xs text-accent">
+                            <Clock className="h-3 w-3 mr-1" />
+                            Pending Review
+                          </div>
+                        )}
+                        {status === 'in-progress' && (
+                          <div className="flex items-center text-xs text-primary">
+                            <Clock className="h-3 w-3 mr-1" />
+                            In Progress
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  );
+                })
+              ) : (
+                <div className="text-center py-8">
+                  <FileText className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                  <p className="text-muted-foreground">No assessments attempted yet</p>
                 </div>
-              ))}
+              )}
             </CardContent>
           </Card>
         </div>
@@ -183,35 +252,43 @@ const StudentDashboard: React.FC = () => {
         {/* Upcoming Deadlines */}
         <Card>
           <CardHeader>
-            <CardTitle>Upcoming Deadlines</CardTitle>
-            <CardDescription>Stay on track with your assignments</CardDescription>
+            <CardTitle>Recent Activity</CardTitle>
+            <CardDescription>Your latest course activities and assessments</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="space-y-3">
-              {upcomingDeadlines.map((deadline) => (
-                <div key={deadline.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                  <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${
-                      deadline.priority === 'high' ? 'bg-destructive' :
-                      deadline.priority === 'medium' ? 'bg-accent' : 'bg-secondary'
-                    }`} />
-                    <div>
-                      <h4 className="font-medium text-foreground">{deadline.title}</h4>
-                      <p className="text-sm text-muted-foreground">{deadline.course}</p>
+            {coursesWithProgress.length > 0 ? (
+              <div className="space-y-3">
+                {coursesWithProgress.map((course) => (
+                  <div key={course.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
+                    <div className="flex items-center space-x-3">
+                      <div className={`w-3 h-3 rounded-full ${
+                        course.progress >= 80 ? 'bg-secondary' :
+                        course.progress >= 50 ? 'bg-accent' : 'bg-primary'
+                      }`} />
+                      <div>
+                        <h4 className="font-medium text-foreground">{course.name}</h4>
+                        <p className="text-sm text-muted-foreground">
+                          {course.completedAssessments} of {course.totalAssessments} assessments completed
+                        </p>
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-medium text-foreground">{Math.round(course.progress)}% Complete</div>
+                      {course.averageScore > 0 && (
+                        <div className="text-xs text-muted-foreground">
+                          Average: {Math.round(course.averageScore)}%
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm font-medium text-foreground">{deadline.dueDate}</div>
-                    <div className={`text-xs capitalize ${
-                      deadline.priority === 'high' ? 'text-destructive' :
-                      deadline.priority === 'medium' ? 'text-accent' : 'text-secondary'
-                    }`}>
-                      {deadline.priority} priority
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8">
+                <Clock className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
+                <p className="text-muted-foreground">No activity yet. Enroll in courses to get started!</p>
+              </div>
+            )}
           </CardContent>
         </Card>
 

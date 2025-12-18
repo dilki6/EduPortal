@@ -8,14 +8,17 @@ import ProtectedRoute from "@/components/ProtectedRoute";
 import Navbar from "@/components/Navbar";
 import Index from "./pages/Index";
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import TeacherDashboard from "./pages/TeacherDashboard";
 import StudentDashboard from "./pages/StudentDashboard";
 import CourseManagement from "./pages/CourseManagement";
 import AssessmentManagement from "./pages/AssessmentManagement";
 import ReviewAnswers from "./pages/ReviewAnswers";
+import TeacherAnalytics from "./pages/TeacherAnalytics";
 import MyCourses from "./pages/MyCourses";
 import MyProgress from "./pages/MyProgress";
 import AttemptAssessment from "./pages/AttemptAssessment";
+import StudentReviewAttempt from "./pages/StudentReviewAttempt";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -29,6 +32,7 @@ const AppContent = () => {
       <Routes>
         <Route path="/" element={<Index />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/register" element={<Register />} />
         
         {/* Teacher Routes */}
         <Route path="/teacher-dashboard" element={
@@ -65,10 +69,7 @@ const AppContent = () => {
 
         <Route path="/analytics-teacher" element={
           <ProtectedRoute allowedRoles={['teacher']}>
-            <div className="p-8 text-center">
-              <h2 className="text-2xl font-bold mb-4">Teacher Analytics</h2>
-              <p className="text-muted-foreground">Coming soon...</p>
-            </div>
+            <TeacherAnalytics />
           </ProtectedRoute>
         } />
 
@@ -93,6 +94,12 @@ const AppContent = () => {
         <Route path="/attempt-assessment/:assessmentId" element={
           <ProtectedRoute allowedRoles={['student']}>
             <AttemptAssessment />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/review-attempt/:attemptId" element={
+          <ProtectedRoute allowedRoles={['student']}>
+            <StudentReviewAttempt />
           </ProtectedRoute>
         } />
 
