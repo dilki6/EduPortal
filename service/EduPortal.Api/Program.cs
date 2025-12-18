@@ -37,9 +37,30 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Configure Database (Using In-Memory for demo, switch to SQL Server for production)
-builder.Services.AddDbContext<EduPortalDbContext>(options =>
-    options.UseInMemoryDatabase("EduPortalDb"));
+// Configure Database (auto-detect SQLite or SQL Server or In-Memory)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (!string.IsNullOrEmpty(connectionString))
+{
+    if (connectionString.Contains("Data Source=") && connectionString.EndsWith(".db"))
+    {
+        // SQLite
+        builder.Services.AddDbContext<EduPortalDbContext>(options =>
+            options.UseSqlite(connectionString));
+    }
+    else
+    {
+        // SQL Server
+        builder.Services.AddDbContext<EduPortalDbContext>(options =>
+            options.UseSqlServer(connectionString));
+    }
+}
+else
+{
+    // In-Memory for demo
+    builder.Services.AddDbContext<EduPortalDbContext>(options =>
+        options.UseInMemoryDatabase("EduPortalDb"));
+}
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -77,15 +98,14 @@ builder.Services.AddScoped<IProgressService, ProgressService>();
 builder.Services.AddScoped<IAiEvaluationService, AiEvaluationService>();
 
 // Configure CORS
+var corsOrigins = builder.Configuration.GetSection("CorsOrigins").Get<string[]>() 
+    ?? new[] { "http://localhost", "http://localhost:5173", "http://localhost:3000", "http://localhost:8080" };
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowWeb", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173", 
-                "http://localhost:3000",
-                "http://localhost:8080",
-                "http://[::]:8080")
+        policy.WithOrigins(corsOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials()
@@ -99,6 +119,10 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<EduPortalDbContext>();
+    
+    // Ensure database is created (for SQLite)
+    dbContext.Database.EnsureCreated();
+    
     DbInitializer.Initialize(dbContext);
 }
 

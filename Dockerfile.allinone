@@ -1,0 +1,62 @@
+# Stage 1: Build Frontend
+FROM node:18-bullseye-slim AS frontend-build
+WORKDIR /app
+COPY web/package*.json ./
+RUN npm ci
+COPY web/ ./
+ENV VITE_API_URL=http://localhost/api
+RUN npm run build
+
+# Stage 2: Build Backend
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS backend-build
+WORKDIR /src
+COPY service/EduPortal.Api/*.csproj ./EduPortal.Api/
+RUN dotnet restore "./EduPortal.Api/EduPortal.Api.csproj"
+COPY service/EduPortal.Api/ ./EduPortal.Api/
+WORKDIR "/src/EduPortal.Api"
+RUN dotnet publish "EduPortal.Api.csproj" -c Release -o /app/publish /p:UseAppHost=false
+
+# Stage 3: Final Runtime Image - All Services
+FROM mcr.microsoft.com/dotnet/aspnet:8.0
+
+# Install dependencies
+RUN apt-get update && apt-get install -y \
+    curl \
+    wget \
+    ca-certificates \
+    supervisor \
+    nginx \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Ollama
+RUN curl -fsSL https://ollama.com/install.sh | sh
+
+# Setup Backend
+WORKDIR /app
+COPY --from=backend-build /app/publish .
+
+# Setup Frontend
+COPY --from=frontend-build /app/dist /var/www/html
+
+# Copy configurations
+COPY docker-configs/nginx-allinone.conf /etc/nginx/sites-enabled/default
+COPY docker-configs/supervisord-allinone.conf /etc/supervisor/conf.d/supervisord.conf
+COPY docker-configs/appsettings.Docker.json /app/appsettings.Production.json
+COPY docker-configs/start-allinone.sh /start.sh
+
+# Create directories
+RUN mkdir -p /app/data /var/log/supervisor /root/.ollama && \
+    chmod +x /start.sh
+
+# Expose ports
+EXPOSE 80
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=90s --retries=3 \
+  CMD curl -f http://localhost/ || exit 1
+
+# Volume for data persistence
+VOLUME ["/app/data", "/root/.ollama"]
+
+CMD ["/start.sh"]
