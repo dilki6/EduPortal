@@ -2,7 +2,7 @@
 FROM oven/bun:1 AS frontend-build
 WORKDIR /app
 COPY web/package.json web/bun.lockb ./
-RUN bun install --frozen-lockfile
+RUN bun install
 COPY web/ .
 RUN bun run build
 
