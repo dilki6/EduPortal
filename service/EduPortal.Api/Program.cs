@@ -123,10 +123,10 @@ using (var scope = app.Services.CreateScope())
     try
     {
         // Ensure database directory exists (for SQLite)
-        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-        if (!string.IsNullOrEmpty(connectionString) && connectionString.Contains("Data Source="))
+        var dbConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+        if (!string.IsNullOrEmpty(dbConnectionString) && dbConnectionString.Contains("Data Source="))
         {
-            var dbPath = connectionString.Replace("Data Source=", "").Trim();
+            var dbPath = dbConnectionString.Replace("Data Source=", "").Trim();
             var dbDirectory = Path.GetDirectoryName(dbPath);
             if (!string.IsNullOrEmpty(dbDirectory) && !Directory.Exists(dbDirectory))
             {
