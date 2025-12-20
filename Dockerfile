@@ -93,8 +93,9 @@ RUN apk add --no-cache \
     wget \
     && rm -rf /var/cache/apk/*
 
-# Install Ollama (optimized installation)
-RUN curl -fsSL https://ollama.com/install.sh | sh
+# Install Ollama (optional - AI features will be disabled if this fails)
+RUN curl -fsSL https://ollama.com/install.sh | sh || \
+    echo "Warning: Ollama installation failed - AI features will be unavailable"
 
 # Create non-root user for security
 RUN addgroup -g 1000 eduportal && \

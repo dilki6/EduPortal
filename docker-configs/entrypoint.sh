@@ -54,62 +54,79 @@ else
 fi
 
 # ============================================
-# 3. Ollama Service Initialization
+# 3. Ollama Service Initialization (Optional)
 # ============================================
 log_info "Starting Ollama AI service..."
 
-# Start Ollama in background
-ollama serve > /var/log/supervisor/ollama.log 2>&1 &
-OLLAMA_PID=$!
-
-# Wait for Ollama to be ready with timeout
-log_info "Waiting for Ollama service (max 30s)..."
-COUNTER=0
-OLLAMA_READY=false
-
-while [ $COUNTER -lt 30 ]; do
-    if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
-        OLLAMA_READY=true
-        break
-    fi
-    sleep 1
-    COUNTER=$((COUNTER + 1))
-    [ $((COUNTER % 5)) -eq 0 ] && log_info "Still waiting... (${COUNTER}s)"
-done
-
-if [ "$OLLAMA_READY" = true ]; then
-    log_success "Ollama service started successfully"
+# Check if Ollama is installed
+if ! command -v ollama &> /dev/null; then
+    log_warn "Ollama not found - AI features will be unavailable"
+    log_info "Application will continue without AI evaluation"
 else
-    log_error "Ollama service failed to start - AI features will be unavailable"
-fi
+    # Start Ollama in background
+    log_info "Attempting to start Ollama..."
+    ollama serve > /var/log/supervisor/ollama.log 2>&1 &
+    OLLAMA_PID=$!
 
-# ============================================
-# 4. AI Model Management
-# ============================================
-MODEL_NAME="qwen2.5:3b"
-log_info "Checking AI model: $MODEL_NAME"
+    # Wait for Ollama to be ready with timeout
+    log_info "Waiting for Ollama service (max 30s)..."
+    COUNTER=0
+    OLLAMA_READY=false
 
-if ollama list 2>/dev/null | grep -q "$MODEL_NAME"; then
-    log_success "AI model found: $MODEL_NAME"
-else
-    log_warn "AI model not found - downloading in background..."
-    log_info "Model size: ~2.3GB | This may take 5-15 minutes"
-    
-    # Download model in background, log progress
-    (
-        ollama pull $MODEL_NAME > /var/log/supervisor/model-download.log 2>&1
-        if [ $? -eq 0 ]; then
-            log_success "AI model downloaded successfully: $MODEL_NAME"
-        else
-            log_error "Failed to download AI model - check /var/log/supervisor/model-download.log"
+    while [ $COUNTER -lt 30 ]; do
+        if curl -s http://localhost:11434/api/tags > /dev/null 2>&1; then
+            OLLAMA_READY=true
+            break
         fi
-    ) &
-    
-    log_info "Model download started (PID: $!)"
+        
+        # Check if Ollama process died
+        if ! kill -0 $OLLAMA_PID 2>/dev/null; then
+            log_warn "Ollama process exited unexpectedly"
+            break
+        fi
+        
+        sleep 1
+        COUNTER=$((COUNTER + 1))
+        [ $((COUNTER % 5)) -eq 0 ] && log_info "Still waiting... (${COUNTER}s)"
+    done
+
+    if [ "$OLLAMA_READY" = true ]; then
+        log_success "Ollama service started successfully"
+        
+        # Try to pull model in background
+        MODEL_NAME="qwen2.5:3b"
+        log_info "Checking AI model: $MODEL_NAME"
+        
+        if ollama list 2>/dev/null | grep -q "$MODEL_NAME"; then
+            log_success "AI model found: $MODEL_NAME"
+        else
+            log_warn "AI model not found - downloading in background..."
+            log_info "Model size: ~2.3GB | This may take 5-15 minutes"
+            
+            # Download model in background, log progress
+            (
+                ollama pull $MODEL_NAME > /var/log/supervisor/model-download.log 2>&1
+                if [ $? -eq 0 ]; then
+                    log_success "AI model downloaded successfully: $MODEL_NAME"
+                else
+                    log_warn "Failed to download AI model - AI features may not work"
+                fi
+            ) &
+            
+            log_info "Model download started (PID: $!)"
+        fi
+    else
+        log_warn "Ollama service failed to start - AI features will be unavailable"
+        log_info "Application will continue without AI evaluation"
+        log_info "Check /var/log/supervisor/ollama.log for details"
+        
+        # Kill Ollama process if still running
+        kill $OLLAMA_PID 2>/dev/null || true
+    fi
 fi
 
 # ============================================
-# 5. Nginx Configuration
+# 4. Nginx Configuration
 # ============================================
 log_info "Verifying Nginx configuration..."
 nginx -t > /dev/null 2>&1
@@ -121,7 +138,7 @@ else
 fi
 
 # ============================================
-# 6. System Information
+# 5. System Information
 # ============================================
 echo ""
 echo "============================================="
@@ -136,7 +153,7 @@ echo "============================================="
 echo ""
 
 # ============================================
-# 7. Service Endpoints
+# 6. Service Endpoints
 # ============================================
 echo "============================================="
 echo "  Service Endpoints"
@@ -144,13 +161,13 @@ echo "============================================="
 echo "  Frontend:     http://localhost"
 echo "  Backend API:  http://localhost/api"
 echo "  Swagger UI:   http://localhost/api/swagger"
-echo "  Ollama API:   http://localhost:11434"
+echo "  Ollama API:   http://localhost:11434 (if available)"
 echo "  Health Check: http://localhost/api/health"
 echo "============================================="
 echo ""
 
 # ============================================
-# 8. Default Credentials
+# 7. Default Credentials
 # ============================================
 echo "============================================="
 echo "  Default Credentials (CHANGE IN PRODUCTION)"
@@ -161,7 +178,7 @@ echo "============================================="
 echo ""
 
 # ============================================
-# 9. Start Supervisor
+# 8. Start Supervisor
 # ============================================
 log_info "Starting all services via Supervisor..."
 echo ""
