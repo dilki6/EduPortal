@@ -152,10 +152,21 @@ echo "============================================="
 echo "  System Information"
 echo "============================================="
 echo "  Hostname:     $(hostname)"
-echo "  OS:           $(cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2)"
-echo "  .NET Version: $(dotnet --version)"
-echo "  Disk Usage:   $(df -h /data | tail -1 | awk '{print $3 "/" $2 " (" $5 ")"}')"
-echo "  Memory:       $(free -h | grep Mem | awk '{print $3 "/" $2}')"
+echo "  OS:           $(cat /etc/os-release | grep PRETTY_NAME | cut -d'"' -f2 2>/dev/null || echo 'Linux')"
+
+# .NET version (runtime only, no SDK in production)
+DOTNET_VERSION=$(/app/EduPortal.Api --version 2>/dev/null || echo "8.0 (Runtime)")
+echo "  .NET:         $DOTNET_VERSION"
+
+# Disk usage
+DISK_USAGE=$(df -h /data 2>/dev/null | tail -1 | awk '{print $3 "/" $2 " (" $5 ")"}' || echo "N/A")
+echo "  Disk Usage:   $DISK_USAGE"
+
+# Memory (install procps if needed, otherwise skip)
+if command -v free >/dev/null 2>&1; then
+    MEMORY=$(free -h 2>/dev/null | grep Mem | awk '{print $3 "/" $2}' || echo "N/A")
+    echo "  Memory:       $MEMORY"
+fi
 echo "============================================="
 echo ""
 
