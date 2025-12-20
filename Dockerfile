@@ -123,13 +123,14 @@ COPY --chown=eduportal:eduportal docker-configs/appsettings.Docker.json ./appset
 COPY --from=frontend-builder --chown=eduportal:eduportal /build/dist /var/www/html/
 
 # ============================================
-# Setup Nginx
+# Setup Nginx (Debian paths)
 # ============================================
 COPY docker-configs/nginx-optimized.conf /etc/nginx/nginx.conf
-COPY docker-configs/nginx-site.conf /etc/nginx/http.d/default.conf
+COPY docker-configs/nginx-site.conf /etc/nginx/sites-available/default
 
-# Remove default nginx config
-RUN rm -f /etc/nginx/http.d/default.conf.default
+# Enable site and remove default configs
+RUN ln -sf /etc/nginx/sites-available/default /etc/nginx/sites-enabled/default && \
+    rm -f /etc/nginx/sites-enabled/default.old
 
 # ============================================
 # Setup Supervisor
