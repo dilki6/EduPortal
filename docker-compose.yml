@@ -1,102 +1,42 @@
-# ============================================
-# Docker Compose - EduPortal
-# Production-Ready Multi-Container Setup
-# ============================================
-# Usage:
-#   Development: docker-compose up
-#   Production:  docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
-#   Build:       docker-compose build --parallel
-#   Logs:        docker-compose logs -f [service]
-#   Scale:       docker-compose up -d --scale backend=3
-# ============================================
-
 version: '3.8'
 
 services:
-  # ============================================
-  # Main Application (All-in-One)
-  # ============================================
   eduportal:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        VITE_API_BASE_URL: /api
-      cache_from:
-        - eduportal:latest
-    image: eduportal:latest
-    container_name: eduportal
-    restart: unless-stopped
-    
+    build: .
+    container_name: eduportal_app
     ports:
-      - "80:80"        # Frontend + API via Nginx
-      - "5000:5000"    # Direct API access (optional)
-      - "11434:11434"  # Ollama API (optional)
-    
-    volumes:
-      # Persistent data
-      - eduportal-data:/data
-      # Optional: custom configuration override
-      # - ./custom-config.json:/app/appsettings.Production.json:ro
-    
+      - "8080:8080"
     environment:
-      # .NET Configuration
       - ASPNETCORE_ENVIRONMENT=Production
-      - ASPNETCORE_URLS=http://+:5000
-      - DOTNET_RUNNING_IN_CONTAINER=true
-      - TZ=America/New_York
-      
-      # Custom settings (override appsettings.json)
-      - ConnectionStrings__DefaultConnection=Data Source=/data/db/eduportal.db
-      - JwtSettings__SecretKey=${JWT_SECRET:-YourSuperSecretKeyChange123456789}
-      - Ollama__Url=http://localhost:11434
-      - Ollama__Model=qwen2.5:3b
-    
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost/api/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 120s
-    
-    networks:
-      - eduportal-network
-    
-    # Resource limits
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 4G
-        reservations:
-          cpus: '1'
-          memory: 2G
-    
-    # Logging
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-        labels: "service=eduportal"
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=EduPortalDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;
+      - Ollama__Url=http://ollama:11434
+      - JwtSettings__SecretKey=YourSuperSecretKeyForJWTTokenGeneration123456789
+    depends_on:
+      - sqlserver
+      - ollama
+    restart: unless-stopped
 
-# ============================================
-# Networks
-# ============================================
-networks:
-  eduportal-network:
-    driver: bridge
-    ipam:
-      config:
-        - subnet: 172.25.0.0/16
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: eduportal_db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong!Passw0rd
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    restart: unless-stopped
 
-# ============================================
-# Volumes
-# ============================================
+  ollama:
+    image: ollama/ollama:latest
+    container_name: eduportal_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
 volumes:
-  eduportal-data:
-    driver: local
-    driver_opts:
-      type: none
-      o: bind
-      device: ${DATA_DIR:-./data}
+  sqlserver_data:
+  ollama_data:
