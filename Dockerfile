@@ -40,7 +40,7 @@ RUN npm run build && \
 # ============================================
 # Stage 2: Backend Build (.NET)
 # ============================================
-FROM mcr.microsoft.com/dotnet/sdk:8.0-alpine AS backend-builder
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS backend-builder
 
 WORKDIR /build
 
@@ -49,7 +49,7 @@ COPY service/EduPortal.Api/EduPortal.Api.csproj ./EduPortal.Api/
 
 # Restore dependencies
 RUN dotnet restore "./EduPortal.Api/EduPortal.Api.csproj" \
-    --runtime linux-musl-x64 \
+    --runtime linux-x64 \
     --verbosity minimal
 
 # Copy source code
@@ -59,7 +59,7 @@ COPY service/EduPortal.Api/ ./EduPortal.Api/
 WORKDIR /build/EduPortal.Api
 RUN dotnet publish "EduPortal.Api.csproj" \
     --configuration Release \
-    --runtime linux-musl-x64 \
+    --runtime linux-x64 \
     --self-contained false \
     --output /app/publish \
     --no-restore \
@@ -70,36 +70,34 @@ RUN dotnet publish "EduPortal.Api.csproj" \
     /p:DebugSymbols=false
 
 # ============================================
-# Stage 3: Runtime (Production)
+# Stage 3: Runtime (Production) - Debian for Ollama
 # ============================================
-FROM mcr.microsoft.com/dotnet/aspnet:8.0-alpine
+FROM mcr.microsoft.com/dotnet/aspnet:8.0-bookworm-slim
 
 # Metadata labels
 LABEL maintainer="EduPortal Team"
 LABEL description="EduPortal - Complete Learning Management System"
 LABEL version="1.0"
 
-# Install runtime dependencies (minimal set)
-RUN apk add --no-cache \
+# Install runtime dependencies
+RUN apt-get update && apt-get install -y \
     # Core utilities
-    bash curl ca-certificates tzdata \
+    bash curl wget ca-certificates tzdata \
     # Web server
     nginx \
     # Database
-    sqlite \
+    sqlite3 \
     # Process supervisor
     supervisor \
-    # For Ollama installation
-    wget \
-    && rm -rf /var/cache/apk/*
+    # Clean up
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Ollama (optional - AI features will be disabled if this fails)
-RUN curl -fsSL https://ollama.com/install.sh | sh || \
-    echo "Warning: Ollama installation failed - AI features will be unavailable"
+# Install Ollama (works better on Debian than Alpine)
+RUN curl -fsSL https://ollama.com/install.sh | sh
 
 # Create non-root user for security
-RUN addgroup -g 1000 eduportal && \
-    adduser -D -u 1000 -G eduportal eduportal && \
+RUN groupadd -g 1000 eduportal && \
+    useradd -u 1000 -g eduportal -m -s /bin/bash eduportal && \
     # Create required directories
     mkdir -p /app /data/db /data/ollama /var/www/html \
              /var/log/supervisor /var/log/nginx \
