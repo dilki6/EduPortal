@@ -162,8 +162,8 @@ EXPOSE 80 5000 11434
 HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
     CMD curl -f http://localhost/api/health || exit 1
 
-# Volumes for persistence
-VOLUME ["/data"]
+# Note: Use Railway volumes instead of VOLUME keyword
+# Add volume via Railway Dashboard: Settings -> Volumes -> Mount Path: /data
 
 # Switch to non-root user
 USER eduportal
