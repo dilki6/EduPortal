@@ -32,6 +32,12 @@ mkdir -p /data/db /data/ollama /data/backups
 
 # Create symlinks for Ollama
 ln -sfn /data/ollama /home/eduportal/.ollama
+ln -sfn /data/ollama /root/.ollama
+
+# Fix permissions
+chown -R eduportal:eduportal /data /home/eduportal/.ollama
+chmod -R 755 /data
+
 log_success "Data directories ready"
 
 # ============================================

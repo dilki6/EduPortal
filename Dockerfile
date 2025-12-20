@@ -101,9 +101,10 @@ RUN groupadd -g 1000 eduportal && \
     # Create required directories
     mkdir -p /app /data/db /data/ollama /var/www/html \
              /var/log/supervisor /var/log/nginx \
-             /run/nginx && \
+             /var/run /var/cache/nginx /var/lib/nginx && \
     # Set permissions
-    chown -R eduportal:eduportal /app /data /var/www/html /var/log/supervisor /var/log/nginx /run/nginx
+    chown -R eduportal:eduportal /app /data /var/www/html /var/log/supervisor && \
+    chmod -R 755 /var/log/nginx /var/run /var/cache/nginx /var/lib/nginx
 
 # ============================================
 # Setup Backend API
@@ -139,8 +140,7 @@ COPY docker-configs/supervisord.conf /etc/supervisor/conf.d/supervisord.conf
 # Setup Startup Script
 # ============================================
 COPY docker-configs/entrypoint.sh /entrypoint.sh
-RUN chmod +x /entrypoint.sh && \
-    chown eduportal:eduportal /entrypoint.sh
+RUN chmod +x /entrypoint.sh
 
 # ============================================
 # Configuration
@@ -164,8 +164,8 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=120s --retries=3 \
 # Note: Use Railway volumes instead of VOLUME keyword
 # Add volume via Railway Dashboard: Settings -> Volumes -> Mount Path: /data
 
-# Switch to non-root user
-USER eduportal
+# Don't switch user - supervisor will handle user switching per service
+# USER eduportal
 
 # Startup
 ENTRYPOINT ["/entrypoint.sh"]
