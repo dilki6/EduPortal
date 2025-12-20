@@ -120,10 +120,33 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<EduPortalDbContext>();
     
-    // Ensure database is created (for SQLite)
-    dbContext.Database.EnsureCreated();
-    
-    DbInitializer.Initialize(dbContext);
+    try
+    {
+        // Ensure database directory exists (for SQLite)
+        var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+        if (!string.IsNullOrEmpty(connectionString) && connectionString.Contains("Data Source="))
+        {
+            var dbPath = connectionString.Replace("Data Source=", "").Trim();
+            var dbDirectory = Path.GetDirectoryName(dbPath);
+            if (!string.IsNullOrEmpty(dbDirectory) && !Directory.Exists(dbDirectory))
+            {
+                Directory.CreateDirectory(dbDirectory);
+                Console.WriteLine($"Created database directory: {dbDirectory}");
+            }
+        }
+        
+        // Ensure database is created (for SQLite)
+        dbContext.Database.EnsureCreated();
+        
+        DbInitializer.Initialize(dbContext);
+        Console.WriteLine("Database initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Database initialization error: {ex.Message}");
+        Console.WriteLine($"Connection string: {builder.Configuration.GetConnectionString("DefaultConnection")}");
+        throw;
+    }
 }
 
 // Configure the HTTP request pipeline.

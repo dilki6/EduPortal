@@ -28,15 +28,25 @@ echo ""
 # 1. Initialize Data Directory
 # ============================================
 log_info "Initializing data directories..."
+
+# Check if /data is writable (Railway volume must be mounted)
+if [ ! -w /data ]; then
+    log_error "/data directory is not writable!"
+    log_error "Railway volume may not be mounted. Please add a volume at /data in Railway Dashboard."
+    log_warn "Continuing with temporary storage (data will be lost on restart)..."
+    mkdir -p /tmp/data/db /tmp/data/ollama /tmp/data/backups
+    ln -sfn /tmp/data /data
+fi
+
 mkdir -p /data/db /data/ollama /data/backups
 
 # Create symlinks for Ollama
 ln -sfn /data/ollama /home/eduportal/.ollama
 ln -sfn /data/ollama /root/.ollama
 
-# Fix permissions
-chown -R eduportal:eduportal /data /home/eduportal/.ollama
-chmod -R 755 /data
+# Fix permissions (with error handling)
+chown -R eduportal:eduportal /data /home/eduportal/.ollama 2>/dev/null || log_warn "Permission adjustment skipped"
+chmod -R 755 /data 2>/dev/null || true
 
 log_success "Data directories ready"
 
