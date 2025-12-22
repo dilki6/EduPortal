@@ -1,8 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { BookOpen, Users, FileText, BarChart3, Plus, TrendingUp, Loader2 } from 'lucide-react';
 import { courseApi, assessmentApi } from '@/lib/api';
 import type { Course, Assessment, EnrollmentWithDetails, AssessmentAttempt } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -28,13 +25,11 @@ const TeacherDashboard: React.FC = () => {
     try {
       setLoading(true);
       
-      // Fetch courses and assessments
       const [teacherCourses, teacherAssessments] = await Promise.all([
         courseApi.getMyTeachingCourses(),
         assessmentApi.getMyTeachingAssessments()
       ]);
 
-      // Fetch enrollments and attempts for each course
       const coursesWithDetails = await Promise.all(
         teacherCourses.map(async (course) => {
           try {
@@ -57,7 +52,6 @@ const TeacherDashboard: React.FC = () => {
         })
       );
 
-      // Calculate total students (unique across all courses)
       const allEnrollments = await Promise.all(
         teacherCourses.map(course => 
           courseApi.getEnrollments(course.id).catch(() => [])
@@ -67,7 +61,6 @@ const TeacherDashboard: React.FC = () => {
         allEnrollments.flat().map(enrollment => enrollment.studentId)
       );
 
-      // Calculate pending evaluations (attempts that are completed but not released)
       let pending = 0;
       for (const assessment of teacherAssessments) {
         try {
@@ -99,10 +92,9 @@ const TeacherDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading dashboard...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '14px', color: '#666' }}>Loading dashboard...</div>
         </div>
       </div>
     );
@@ -116,224 +108,105 @@ const TeacherDashboard: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
-        {/* Welcome Header */}
-        <div className="flex flex-col space-y-2">
-          <h1 className="text-3xl font-bold text-foreground">Teacher Dashboard</h1>
-          <p className="text-muted-foreground">Manage your courses, assessments, and track student progress</p>
+    <div style={{ minHeight: '100vh', backgroundColor: '#fff', padding: '20px' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>Teacher Dashboard</h1>
+        <p style={{ color: '#666', marginBottom: '20px', fontSize: '12px' }}>Manage courses and assessments</p>
+
+        {/* Stats */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
+          <div style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
+            <div style={{ fontSize: '12px', color: '#666' }}>Total Courses</div>
+            <div style={{ fontSize: '22px', fontWeight: 'bold', marginTop: '5px' }}>{stats.totalCourses}</div>
+          </div>
+          <div style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
+            <div style={{ fontSize: '12px', color: '#666' }}>Total Students</div>
+            <div style={{ fontSize: '22px', fontWeight: 'bold', marginTop: '5px' }}>{stats.totalStudents}</div>
+          </div>
+          <div style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
+            <div style={{ fontSize: '12px', color: '#666' }}>Assessments</div>
+            <div style={{ fontSize: '22px', fontWeight: 'bold', marginTop: '5px' }}>{stats.totalAssessments}</div>
+          </div>
+          <div style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
+            <div style={{ fontSize: '12px', color: '#666' }}>Pending</div>
+            <div style={{ fontSize: '22px', fontWeight: 'bold', marginTop: '5px', color: '#d32f2f' }}>{stats.pendingEvaluations}</div>
+          </div>
         </div>
 
-        {/* Stats Cards */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          <Card className="bg-gradient-to-br from-primary/10 to-primary/5 border-primary/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Courses</CardTitle>
-              <BookOpen className="h-4 w-4 text-primary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-primary">{stats.totalCourses}</div>
-              <p className="text-xs text-muted-foreground">Active courses</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-secondary/10 to-secondary/5 border-secondary/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Students</CardTitle>
-              <Users className="h-4 w-4 text-secondary" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-secondary">{stats.totalStudents}</div>
-              <p className="text-xs text-muted-foreground">Enrolled students</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-accent/10 to-accent/5 border-accent/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Assessments</CardTitle>
-              <FileText className="h-4 w-4 text-accent" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-accent">{stats.totalAssessments}</div>
-              <p className="text-xs text-muted-foreground">Created assessments</p>
-            </CardContent>
-          </Card>
-
-          <Card className="bg-gradient-to-br from-destructive/10 to-destructive/5 border-destructive/20">
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Pending</CardTitle>
-              <TrendingUp className="h-4 w-4 text-destructive" />
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-destructive">{stats.pendingEvaluations}</div>
-              <p className="text-xs text-muted-foreground">Evaluations needed</p>
-            </CardContent>
-          </Card>
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {/* Recent Courses */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between">
-              <div>
-                <CardTitle>Your Courses</CardTitle>
-                <CardDescription>Manage and monitor your active courses</CardDescription>
-              </div>
-              <Link to="/course-management">
-                <Button variant="outline" size="sm">
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Course
-                </Button>
-              </Link>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {courses.length > 0 ? (
-                <>
-                  {courses.slice(0, 3).map((course) => (
-                    <div key={course.id} className="flex items-center justify-between p-3 bg-muted/30 rounded-lg">
-                      <div>
-                        <h4 className="font-medium text-foreground">{course.name}</h4>
-                        <p className="text-sm text-muted-foreground">
-                          {course.studentCount} student{course.studentCount !== 1 ? 's' : ''} • {course.assessmentCount} assessment{course.assessmentCount !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <Link to="/course-management">
-                        <Button variant="ghost" size="sm">
-                          View
-                        </Button>
-                      </Link>
+        {/* Courses */}
+        <div style={{ border: '1px solid #ddd', marginBottom: '20px', padding: '15px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0' }}>Your Courses</h2>
+            <Link to="/course-management">
+              <button style={{ padding: '5px 10px', backgroundColor: '#2196F3', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}>
+                Add Course
+              </button>
+            </Link>
+          </div>
+          {courses.length > 0 ? (
+            <div>
+              {courses.slice(0, 3).map((course) => (
+                <div key={course.id} style={{ marginBottom: '10px', padding: '10px', backgroundColor: '#f5f5f5', border: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 'bold' }}>{course.name}</div>
+                    <div style={{ fontSize: '11px', color: '#666' }}>
+                      {course.studentCount} students • {course.assessmentCount} assessments
                     </div>
-                  ))}
+                  </div>
                   <Link to="/course-management">
-                    <Button variant="outline" className="w-full">
-                      View All Courses
-                    </Button>
-                  </Link>
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <BookOpen className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground mb-4">No courses created yet</p>
-                  <Link to="/course-management">
-                    <Button>
-                      <Plus className="h-4 w-4 mr-2" />
-                      Create Your First Course
-                    </Button>
+                    <button style={{ padding: '5px 10px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '11px' }}>
+                      View
+                    </button>
                   </Link>
                 </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Recent Activity */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Activity</CardTitle>
-              <CardDescription>Your latest courses and assessments</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {courses.length > 0 || assessments.length > 0 ? (
-                <>
-                  {/* Show recent assessments */}
-                  {assessments.slice(0, 2).map((assessment) => (
-                    <div key={`assessment-${assessment.id}`} className="flex items-start space-x-3 p-3 bg-muted/30 rounded-lg">
-                      <div className="flex-shrink-0 mt-1">
-                        <FileText className="h-4 w-4 text-primary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground">
-                          {assessment.isPublished ? 'Published' : 'Created'} assessment: {assessment.title}
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(assessment.createdAt).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric',
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                  
-                  {/* Show recent courses */}
-                  {courses.slice(0, 2).map((course) => (
-                    <div key={`course-${course.id}`} className="flex items-start space-x-3 p-3 bg-muted/30 rounded-lg">
-                      <div className="flex-shrink-0 mt-1">
-                        <BookOpen className="h-4 w-4 text-secondary" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground">
-                          {course.studentCount > 0 
-                            ? `${course.studentCount} student${course.studentCount !== 1 ? 's' : ''} enrolled in ${course.name}`
-                            : `Course created: ${course.name}`
-                          }
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(course.createdAt).toLocaleDateString('en-US', {
-                            month: 'short',
-                            day: 'numeric'
-                          })}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-
-                  {/* Show pending evaluations if any */}
-                  {pendingEvaluations > 0 && (
-                    <div className="flex items-start space-x-3 p-3 bg-muted/30 rounded-lg">
-                      <div className="flex-shrink-0 mt-1">
-                        <BarChart3 className="h-4 w-4 text-accent" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm text-foreground">
-                          {pendingEvaluations} assessment{pendingEvaluations !== 1 ? 's' : ''} pending evaluation
-                        </p>
-                        <p className="text-xs text-muted-foreground">Needs attention</p>
-                      </div>
-                    </div>
-                  )}
-                </>
-              ) : (
-                <div className="text-center py-8">
-                  <BarChart3 className="h-12 w-12 mx-auto mb-4 text-muted-foreground opacity-50" />
-                  <p className="text-muted-foreground">No activity yet</p>
-                  <p className="text-sm text-muted-foreground mt-2">Create courses and assessments to get started</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Quick Actions */}
-        <Card>
-          <CardHeader>
-            <CardTitle>Quick Actions</CardTitle>
-            <CardDescription>Common tasks to get you started</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              ))}
               <Link to="/course-management">
-                <Button variant="card" className="h-20 flex-col space-y-2 w-full">
-                  <BookOpen className="h-6 w-6" />
-                  <span>Manage Courses</span>
-                </Button>
-              </Link>
-              <Link to="/assessment-management">
-                <Button variant="card" className="h-20 flex-col space-y-2 w-full">
-                  <FileText className="h-6 w-6" />
-                  <span>Create Assessment</span>
-                </Button>
-              </Link>
-              <Link to="/review-answers">
-                <Button variant="card" className="h-20 flex-col space-y-2 w-full">
-                  <Users className="h-6 w-6" />
-                  <span>Review Answers</span>
-                </Button>
+                <button style={{ width: '100%', padding: '8px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '12px' }}>
+                  View All Courses
+                </button>
               </Link>
             </div>
-          </CardContent>
-        </Card>
+          ) : (
+            <p style={{ color: '#666', fontSize: '12px' }}>No courses created yet</p>
+          )}
+        </div>
+
+        {/* Recent Activity */}
+        <div style={{ border: '1px solid #ddd', marginBottom: '20px', padding: '15px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>Recent Activity</h2>
+          {courses.length > 0 || assessments.length > 0 ? (
+            assessments.slice(0, 3).map((assessment) => (
+              <div key={assessment.id} style={{ marginBottom: '8px', padding: '8px', backgroundColor: '#f5f5f5', border: '1px solid #eee', fontSize: '12px' }}>
+                <div>{assessment.isPublished ? 'Published' : 'Created'}: {assessment.title}</div>
+                <div style={{ fontSize: '10px', color: '#666' }}>{new Date(assessment.createdAt).toLocaleDateString()}</div>
+              </div>
+            ))
+          ) : (
+            <p style={{ color: '#666', fontSize: '12px' }}>No activity yet</p>
+          )}
+        </div>
+
+        {/* Quick Links */}
+        <div style={{ border: '1px solid #ddd', padding: '15px' }}>
+          <h2 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>Quick Actions</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
+            <Link to="/course-management">
+              <button style={{ width: '100%', padding: '12px', backgroundColor: '#2196F3', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}>
+                Manage Courses
+              </button>
+            </Link>
+            <Link to="/assessment-management">
+              <button style={{ width: '100%', padding: '12px', backgroundColor: '#FF9800', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}>
+                Create Assessment
+              </button>
+            </Link>
+            <Link to="/review-answers">
+              <button style={{ width: '100%', padding: '12px', backgroundColor: '#4CAF50', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}>
+                Review Answers
+              </button>
+            </Link>
+          </div>
+        </div>
       </div>
     </div>
   );

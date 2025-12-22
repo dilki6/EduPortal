@@ -1,16 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { FileText, Plus, Edit, Trash2, Clock, Users, Loader2, Eye, EyeOff, CheckCircle2, Circle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { courseApi, assessmentApi, Course, Assessment as ApiAssessment, Question as ApiQuestion, CreateAssessmentRequest, CreateQuestionRequest } from '@/lib/api';
+import { courseApi, assessmentApi, Course } from '@/lib/api';
 
 interface Question {
   id: string;
@@ -68,15 +58,6 @@ const AssessmentManagement: React.FC = () => {
 
   // Fetch courses and assessments on mount
   useEffect(() => {
-    // Debug: Check authentication
-    const token = localStorage.getItem('token');
-    const user = localStorage.getItem('user');
-    console.log('🔐 Auth Debug:', {
-      hasToken: !!token,
-      tokenPreview: token ? `${token.substring(0, 20)}...` : 'No token',
-      user: user ? JSON.parse(user) : 'No user'
-    });
-    
     fetchData();
   }, []);
 
@@ -92,13 +73,11 @@ const AssessmentManagement: React.FC = () => {
       
       setCourses(fetchedCourses);
 
-      // Transform API assessments to local format with course names
-      // Fetch questions and attempts for each assessment
+      // Transform API assessments to local format
       const assessmentsWithQuestions = await Promise.all(
         fetchedAssessments.map(async (assessment) => {
           const course = fetchedCourses.find(c => c.id === assessment.courseId);
           
-          // Fetch questions for this assessment
           let questions: Question[] = [];
           let attemptCount = 0;
           try {
@@ -113,7 +92,7 @@ const AssessmentManagement: React.FC = () => {
               points: q.points
             }));
 
-            // Fetch attempts count for this assessment
+            // Fetch attempts count
             const attempts = await assessmentApi.getAssessmentAttempts(assessment.id);
             attemptCount = attempts.length;
           } catch (error) {
@@ -138,21 +117,14 @@ const AssessmentManagement: React.FC = () => {
       
       setAssessments(assessmentsWithQuestions);
     } catch (error: any) {
-      console.error('❌ Failed to fetch data:', error);
-      console.error('Error details:', {
-        status: error?.status || error?.response?.status,
-        message: error?.message,
-        fullError: error
-      });
+      console.error('Failed to fetch data:', error);
       
-      // Check if it's a 401 error
       if (error?.status === 401 || error?.response?.status === 401) {
         toast({
           title: "Authentication Error",
           description: "Your session has expired. Please log in again.",
           variant: "destructive"
         });
-        // Redirect to login after a short delay
         setTimeout(() => {
           window.location.href = '/login';
         }, 2000);
@@ -181,14 +153,12 @@ const AssessmentManagement: React.FC = () => {
     try {
       setIsSaving(true);
 
-      const createData: CreateAssessmentRequest = {
+      const createdAssessment = await assessmentApi.create({
         courseId: selectedCourse,
         title: assessmentTitle,
         description: assessmentDescription,
         durationMinutes: parseInt(timeLimit)
-      };
-
-      const createdAssessment = await assessmentApi.create(createData);
+      });
       
       const courseName = courses.find(c => c.id === selectedCourse)?.name || '';
       const newAssessment: Assessment = {
@@ -257,8 +227,7 @@ const AssessmentManagement: React.FC = () => {
     try {
       setIsSaving(true);
 
-      // Prepare the question data for API
-      const questionData: CreateQuestionRequest = {
+      const questionData = {
         text: questionText,
         type: questionType === 'mcq' ? 'MultipleChoice' : 'ShortAnswer',
         points: parseInt(points),
@@ -268,13 +237,11 @@ const AssessmentManagement: React.FC = () => {
               text: opt,
               isCorrect: opt === correctAnswer
             }))
-          : [] // For text questions, options array should be empty
+          : []
       };
 
-      // Call API to add question
       const createdQuestion = await assessmentApi.addQuestion(currentAssessment.id, questionData);
 
-      // Transform API response to local format
       const newQuestion: Question = {
         id: createdQuestion.id,
         type: questionType,
@@ -288,7 +255,6 @@ const AssessmentManagement: React.FC = () => {
         points: createdQuestion.points
       };
 
-      // Update local state
       setAssessments(assessments.map(assessment => 
         assessment.id === currentAssessment.id
           ? { ...assessment, questions: [...assessment.questions, newQuestion] }
@@ -348,7 +314,7 @@ const AssessmentManagement: React.FC = () => {
     try {
       setIsSaving(true);
 
-      const questionData: CreateQuestionRequest = {
+      const questionData = {
         text: questionText,
         type: questionType === 'mcq' ? 'MultipleChoice' : 'ShortAnswer',
         points: parseInt(points),
@@ -415,14 +381,12 @@ const AssessmentManagement: React.FC = () => {
     try {
       setDeletingQuestionId(questionId);
 
-      // Optimistically remove from UI
       setAssessments(assessments.map(assessment => 
         assessment.id === assessmentId
           ? { ...assessment, questions: assessment.questions.filter(q => q.id !== questionId) }
           : assessment
       ));
 
-      // Call API to delete question
       await assessmentApi.deleteQuestion(questionId);
       
       toast({
@@ -431,8 +395,6 @@ const AssessmentManagement: React.FC = () => {
       });
     } catch (error) {
       console.error('Failed to delete question:', error);
-      
-      // Restore previous state on error
       await fetchData();
       
       toast({
@@ -453,10 +415,8 @@ const AssessmentManagement: React.FC = () => {
     try {
       setDeletingAssessmentId(assessmentId);
       
-      // Optimistically remove from UI
       setAssessments(prevAssessments => prevAssessments.filter(a => a.id !== assessmentId));
       
-      // Make API call
       await assessmentApi.delete(assessmentId);
       
       toast({
@@ -465,8 +425,6 @@ const AssessmentManagement: React.FC = () => {
       });
     } catch (error) {
       console.error('Failed to delete assessment:', error);
-      
-      // Restore the assessment list on error
       await fetchData();
       
       toast({
@@ -483,7 +441,6 @@ const AssessmentManagement: React.FC = () => {
     try {
       setPublishingAssessmentId(assessmentId);
       
-      // Optimistically update UI
       setAssessments(prevAssessments => 
         prevAssessments.map(a => 
           a.id === assessmentId 
@@ -492,24 +449,22 @@ const AssessmentManagement: React.FC = () => {
         )
       );
 
-      // Call appropriate API endpoint
       if (currentStatus) {
         await assessmentApi.unpublish(assessmentId);
         toast({
           title: "Success",
-          description: "Assessment unpublished successfully. Students will no longer see this assessment."
+          description: "Assessment unpublished successfully"
         });
       } else {
         await assessmentApi.publish(assessmentId);
         toast({
           title: "Success",
-          description: "Assessment published successfully. Students can now see and attempt this assessment."
+          description: "Assessment published successfully"
         });
       }
     } catch (error) {
       console.error('Failed to toggle publish status:', error);
       
-      // Restore previous state on error
       setAssessments(prevAssessments => 
         prevAssessments.map(a => 
           a.id === assessmentId 
@@ -532,7 +487,6 @@ const AssessmentManagement: React.FC = () => {
     try {
       setReleasingResultsId(assessmentId);
       
-      // Optimistically update UI
       setAssessments(prevAssessments => 
         prevAssessments.map(a => 
           a.id === assessmentId 
@@ -541,24 +495,22 @@ const AssessmentManagement: React.FC = () => {
         )
       );
 
-      // Call appropriate API endpoint
       if (currentStatus) {
         await assessmentApi.withdrawResults(assessmentId);
         toast({
           title: "Success",
-          description: "Results withdrawn. Students can no longer view their answers and scores."
+          description: "Results withdrawn"
         });
       } else {
         await assessmentApi.releaseResults(assessmentId);
         toast({
           title: "Success",
-          description: "Results released! Students can now view their answers and scores."
+          description: "Results released!"
         });
       }
     } catch (error) {
       console.error('Failed to toggle results release:', error);
       
-      // Restore previous state on error
       setAssessments(prevAssessments => 
         prevAssessments.map(a => 
           a.id === assessmentId 
@@ -604,13 +556,11 @@ const AssessmentManagement: React.FC = () => {
     setCurrentAssessment(assessment);
     setEditingQuestion(question);
     
-    // Populate form with existing question data
     setQuestionText(question.question);
     setQuestionType(question.type);
     setPoints(question.points.toString());
     
     if (question.type === 'mcq') {
-      // Populate options for MCQ
       const questionOptions = question.options || [];
       setOptions([
         questionOptions[0] || '',
@@ -621,7 +571,6 @@ const AssessmentManagement: React.FC = () => {
       setCorrectAnswer(question.correctAnswer || '');
       setModelAnswer('');
     } else {
-      // Populate model answer for text questions
       setOptions(['', '', '', '']);
       setCorrectAnswer('');
       setModelAnswer(question.modelAnswer || '');
@@ -636,488 +585,278 @@ const AssessmentManagement: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading assessments...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '14px', color: '#666' }}>Loading assessments...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Assessment Management</h1>
-            <p className="text-muted-foreground">Create and manage assessments for your courses</p>
-          </div>
-          
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="gradient" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Create Assessment
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="max-w-2xl">
-              <DialogHeader>
-                <DialogTitle>Create New Assessment</DialogTitle>
-                <DialogDescription>
-                  Set up a new assessment for your students
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="assessment-title">Assessment Title</Label>
-                  <Input
-                    id="assessment-title"
-                    value={assessmentTitle}
-                    onChange={(e) => setAssessmentTitle(e.target.value)}
-                    placeholder="Enter assessment title"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="assessment-description">Description</Label>
-                  <Textarea
-                    id="assessment-description"
-                    value={assessmentDescription}
-                    onChange={(e) => setAssessmentDescription(e.target.value)}
-                    placeholder="Enter assessment description"
-                    rows={3}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="course-select">Course</Label>
-                  <Select value={selectedCourse} onValueChange={setSelectedCourse}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select a course" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {courses.map((course) => (
-                        <SelectItem key={course.id} value={course.id}>
-                          {course.name}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="time-limit">Time Limit (minutes)</Label>
-                  <Input
-                    id="time-limit"
-                    type="number"
-                    value={timeLimit}
-                    onChange={(e) => setTimeLimit(e.target.value)}
-                    placeholder="Enter time limit in minutes"
-                    min="1"
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isSaving}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateAssessment} disabled={isSaving}>
-                  {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Create Assessment
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+    <div style={{ minHeight: '100vh', backgroundColor: '#fff', padding: '20px' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
+        <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>Assessment Management</h1>
+        <p style={{ color: '#666', marginBottom: '20px', fontSize: '12px' }}>Create and manage assessments for your courses</p>
+
+        <div style={{ marginBottom: '20px' }}>
+          <button
+            onClick={() => setIsCreateDialogOpen(true)}
+            style={{ padding: '8px 12px', backgroundColor: '#FF9800', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+          >
+            + Create Assessment
+          </button>
         </div>
 
-        {/* Assessments Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-          {assessments.length === 0 ? (
-            <Card className="col-span-full p-12">
-              <div className="text-center space-y-4">
-                <FileText className="h-16 w-16 mx-auto text-muted-foreground" />
-                <div>
-                  <h3 className="text-xl font-semibold mb-2">No Assessments Yet</h3>
-                  <p className="text-muted-foreground mb-4">
-                    Get started by creating your first assessment
-                  </p>
-                  <Button onClick={() => setIsCreateDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Create Your First Assessment
-                  </Button>
-                </div>
-              </div>
-            </Card>
-          ) : (
-            assessments.map((assessment) => (
-              <Card key={assessment.id} className="hover:shadow-lg transition-shadow">
-                <CardHeader>
-                  <div className="flex items-start justify-between">
-                    <FileText className="h-8 w-8 text-primary" />
-                    <div className="flex gap-2">
-                      <Button
-                        variant={assessment.isPublished ? "default" : "outline"}
-                        size="sm"
-                        onClick={() => handleTogglePublish(assessment.id, assessment.isPublished)}
-                        disabled={publishingAssessmentId === assessment.id}
-                        className="flex items-center gap-2"
-                      >
-                        {publishingAssessmentId === assessment.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : assessment.isPublished ? (
-                          <Eye className="h-4 w-4" />
-                        ) : (
-                          <EyeOff className="h-4 w-4" />
-                        )}
-                        {assessment.isPublished ? 'Published' : 'Unpublished'}
-                      </Button>
-                      {assessment.isPublished && (
-                        <Button
-                          variant={assessment.resultsReleased ? "default" : "outline"}
-                          size="sm"
-                          onClick={() => handleToggleResultsRelease(assessment.id, assessment.resultsReleased || false)}
-                          disabled={releasingResultsId === assessment.id}
-                          className="flex items-center gap-2"
-                        >
-                          {releasingResultsId === assessment.id ? (
-                            <Loader2 className="h-4 w-4 animate-spin" />
-                          ) : assessment.resultsReleased ? (
-                            <CheckCircle2 className="h-4 w-4" />
-                          ) : (
-                            <Circle className="h-4 w-4" />
-                          )}
-                          {assessment.resultsReleased ? 'Results Released' : 'Release Results'}
-                        </Button>
-                      )}
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteAssessment(assessment.id, assessment.title)}
-                        className="text-destructive hover:text-destructive"
-                        disabled={deletingAssessmentId === assessment.id}
-                      >
-                        {deletingAssessmentId === assessment.id ? (
-                          <Loader2 className="h-4 w-4 animate-spin" />
-                        ) : (
-                          <Trash2 className="h-4 w-4" />
-                        )}
-                      </Button>
-                    </div>
+        {/* Assessments List */}
+        {assessments.length === 0 ? (
+          <div style={{ border: '1px solid #ddd', padding: '40px', textAlign: 'center', backgroundColor: '#f5f5f5' }}>
+            <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>No Assessments Yet</div>
+            <p style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>Get started by creating your first assessment</p>
+            <button
+              onClick={() => setIsCreateDialogOpen(true)}
+              style={{ padding: '8px 12px', backgroundColor: '#FF9800', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+            >
+              Create Your First Assessment
+            </button>
+          </div>
+        ) : (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
+            {assessments.map((assessment) => (
+              <div key={assessment.id} style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{assessment.title}</h3>
+                    <p style={{ margin: '5px 0 0 0', fontSize: '11px', color: '#666' }}>{assessment.description}</p>
                   </div>
-                  <CardTitle className="text-xl">{assessment.title}</CardTitle>
-                  <CardDescription>{assessment.description}</CardDescription>
-                </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex flex-wrap gap-2">
-                  <Badge variant="secondary">{assessment.courseName}</Badge>
-                  {assessment.isPublished && (
-                    <Badge variant="default" className="bg-green-500">
-                      <Eye className="h-3 w-3 mr-1" />
-                      Visible to Students
-                    </Badge>
-                  )}
-                  {!assessment.isPublished && (
-                    <Badge variant="secondary" className="bg-gray-500">
-                      <EyeOff className="h-3 w-3 mr-1" />
-                      Hidden from Students
-                    </Badge>
-                  )}
-                  {assessment.isPublished && assessment.resultsReleased && (
-                    <Badge variant="default" className="bg-blue-500">
-                      <CheckCircle2 className="h-3 w-3 mr-1" />
-                      Results Released
-                    </Badge>
-                  )}
-                  {assessment.isPublished && !assessment.resultsReleased && (
-                    <Badge variant="outline" className="bg-orange-50 text-orange-700 border-orange-300">
-                      <Circle className="h-3 w-3 mr-1" />
-                      Results Pending
-                    </Badge>
-                  )}
-                  {(assessment.attemptCount || 0) > 0 && (
-                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-300">
-                      <Users className="h-3 w-3 mr-1" />
-                      {assessment.attemptCount} Attempt{assessment.attemptCount === 1 ? '' : 's'}
-                    </Badge>
-                  )}
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Clock className="h-3 w-3" />
-                    {assessment.timeLimit} min
-                  </Badge>
-                  <Badge variant="outline" className="flex items-center gap-1">
-                    <Users className="h-3 w-3" />
-                    {assessment.questions.length} questions
-                  </Badge>
-                  <Badge variant="outline">
-                    {getTotalPoints(assessment)} points
-                  </Badge>
+                  <div style={{ display: 'flex', gap: '5px' }}>
+                    <button
+                      onClick={() => handleTogglePublish(assessment.id, assessment.isPublished)}
+                      style={{ padding: '4px 8px', backgroundColor: assessment.isPublished ? '#4CAF50' : '#ddd', color: assessment.isPublished ? 'white' : '#666', border: 'none', cursor: 'pointer', fontSize: '10px' }}
+                    >
+                      {assessment.isPublished ? 'Published' : 'Draft'}
+                    </button>
+                    <button
+                      onClick={() => handleDeleteAssessment(assessment.id, assessment.title)}
+                      disabled={deletingAssessmentId === assessment.id}
+                      style={{ padding: '4px 8px', backgroundColor: '#FF6B6B', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}
+                    >
+                      Delete
+                    </button>
+                  </div>
+                </div>
+
+                <div style={{ fontSize: '11px', color: '#666', marginBottom: '10px' }}>
+                  <div>Course: {assessment.courseName}</div>
+                  <div>Duration: {assessment.timeLimit} min | Questions: {assessment.questions.length} | Points: {getTotalPoints(assessment)}</div>
                 </div>
 
                 {assessment.questions.length > 0 && (
-                  <div className="border-t pt-4">
-                    <div className="flex items-center justify-between mb-3">
-                      <p className="text-sm font-semibold text-foreground">Questions ({assessment.questions.length})</p>
-                      <Badge variant="outline" className="text-xs">
-                        Total: {getTotalPoints(assessment)} points
-                      </Badge>
-                    </div>
-                    <div className="space-y-3 max-h-96 overflow-y-auto pr-2">
-                      {assessment.questions.map((question, index) => (
-                        <div key={question.id} className="p-3 bg-muted/50 rounded-lg border border-border">
-                          <div className="flex items-start justify-between gap-2 mb-2">
-                            <div className="flex-1">
-                              <div className="flex items-start gap-2">
-                                <Badge variant="outline" className="text-xs shrink-0">Q{index + 1}</Badge>
-                                <p className="text-sm font-medium text-foreground">
-                                  {question.question}
-                                </p>
-                              </div>
-                            </div>
-                            <div className="flex gap-1 shrink-0">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => openEditQuestionDialog(assessment, question)}
-                                className="text-muted-foreground hover:text-primary h-7 w-7"
-                                disabled={(assessment.attemptCount || 0) > 0}
-                                title={
-                                  (assessment.attemptCount || 0) > 0
-                                    ? `Cannot edit - ${assessment.attemptCount} student(s) have attempted this assessment`
-                                    : 'Edit this question'
-                                }
-                              >
-                                <Edit className="h-3 w-3" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteQuestion(assessment.id, question.id)}
-                                className="text-destructive hover:text-destructive h-7 w-7"
-                                disabled={deletingQuestionId === question.id || (assessment.attemptCount || 0) > 0}
-                                title={
-                                  (assessment.attemptCount || 0) > 0
-                                    ? `Cannot delete - ${assessment.attemptCount} student(s) have attempted this assessment`
-                                    : 'Delete this question'
-                                }
-                              >
-                                {deletingQuestionId === question.id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <Trash2 className="h-3 w-3" />
-                                )}
-                              </Button>
-                            </div>
-                          </div>
-                          
-                          {/* Question Type and Points */}
-                          <div className="flex gap-2 mb-2">
-                            <Badge variant={question.type === 'mcq' ? 'default' : 'secondary'} className="text-xs">
-                              {question.type === 'mcq' ? 'Multiple Choice' : 'Text Answer'}
-                            </Badge>
-                            <Badge variant="outline" className="text-xs">
-                              {question.points} {question.points === 1 ? 'point' : 'points'}
-                            </Badge>
-                          </div>
-
-                          {/* MCQ Options */}
-                          {question.type === 'mcq' && question.options && question.options.length > 0 && (
-                            <div className="mt-2 space-y-1.5">
-                              <p className="text-xs font-medium text-muted-foreground mb-1">Options:</p>
-                              {question.options.map((option, optIndex) => (
-                                <div 
-                                  key={optIndex} 
-                                  className={`flex items-start gap-2 text-xs p-2 rounded ${
-                                    option === question.correctAnswer 
-                                      ? 'bg-green-50 border border-green-200' 
-                                      : 'bg-background border border-border'
-                                  }`}
-                                >
-                                  {option === question.correctAnswer ? (
-                                    <CheckCircle2 className="h-3.5 w-3.5 text-green-600 mt-0.5 shrink-0" />
-                                  ) : (
-                                    <Circle className="h-3.5 w-3.5 text-muted-foreground mt-0.5 shrink-0" />
-                                  )}
-                                  <span className={option === question.correctAnswer ? 'text-green-900 font-medium' : 'text-foreground'}>
-                                    {String.fromCharCode(65 + optIndex)}. {option}
-                                  </span>
-                                  {option === question.correctAnswer && (
-                                    <Badge variant="outline" className="ml-auto text-xs bg-green-100 text-green-700 border-green-300">
-                                      Correct
-                                    </Badge>
-                                  )}
-                                </div>
-                              ))}
-                            </div>
-                          )}
-
-                          {/* Text Answer Model */}
-                          {question.type === 'text' && question.modelAnswer && (
-                            <div className="mt-2 p-2 bg-blue-50 border border-blue-200 rounded">
-                              <p className="text-xs font-medium text-blue-700 mb-1">Model Answer:</p>
-                              <p className="text-xs text-blue-900">{question.modelAnswer}</p>
-                            </div>
-                          )}
-                        </div>
-                      ))}
-                    </div>
+                  <div style={{ marginBottom: '10px', fontSize: '11px', maxHeight: '150px', overflowY: 'auto', backgroundColor: '#f0f0f0', padding: '8px', border: '1px solid #eee' }}>
+                    {assessment.questions.map((question, index) => (
+                      <div key={question.id} style={{ marginBottom: '5px', fontSize: '10px' }}>
+                        <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>Q{index + 1}. {question.question}</div>
+                        <div style={{ color: '#999', marginLeft: '10px' }}>Type: {question.type === 'mcq' ? 'Multiple Choice' : 'Text'} | Points: {question.points}</div>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {/* Empty State for Questions */}
-                {assessment.questions.length === 0 && (
-                  <div className="border-t pt-4">
-                    <div className="text-center py-8 bg-muted/30 rounded-lg border-2 border-dashed">
-                      <FileText className="h-12 w-12 text-muted-foreground mx-auto mb-3" />
-                      <h4 className="text-sm font-medium text-foreground mb-1">No Questions Yet</h4>
-                      <p className="text-xs text-muted-foreground mb-4">
-                        Start building this assessment by adding questions
-                      </p>
-                    </div>
-                  </div>
-                )}
+                <button
+                  onClick={() => openQuestionDialog(assessment)}
+                  disabled={(assessment.attemptCount || 0) > 0}
+                  style={{ width: '100%', padding: '6px', backgroundColor: '#2196F3', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}
+                >
+                  + Add Question
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
 
-                {/* Add Question Button */}
-                <div className="relative">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="w-full mt-2"
-                    onClick={() => openQuestionDialog(assessment)}
-                    disabled={(assessment.attemptCount || 0) > 0}
-                    title={
-                      (assessment.attemptCount || 0) > 0
-                        ? `Cannot add questions - ${assessment.attemptCount} student(s) have already attempted this assessment`
-                        : 'Add a new question to this assessment'
-                    }
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    Add Question
-                  </Button>
-                  {(assessment.attemptCount || 0) > 0 && (
-                    <div className="mt-2 p-2 bg-orange-50 border border-orange-200 rounded-md">
-                      <p className="text-xs text-orange-700 text-center">
-                        ⚠️ Cannot modify - {assessment.attemptCount} student{assessment.attemptCount === 1 ? '' : 's'} attempted
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </CardContent>
-            </Card>
-            ))
-          )}
-        </div>
-
-        {/* Add/Edit Question Dialog */}
-        <Dialog open={isQuestionDialogOpen} onOpenChange={(open) => {
-          setIsQuestionDialogOpen(open);
-          if (!open) {
-            resetQuestionForm();
-          }
-        }}>
-          <DialogContent className="max-w-3xl max-h-[80vh] overflow-y-auto">
-            <DialogHeader>
-              <DialogTitle>{editingQuestion ? 'Edit Question' : 'Add Question'}</DialogTitle>
-              <DialogDescription>
-                {editingQuestion ? 'Update the question details' : `Add a new question to ${currentAssessment?.title}`}
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="question-text">Question</Label>
-                <Textarea
-                  id="question-text"
-                  value={questionText}
-                  onChange={(e) => setQuestionText(e.target.value)}
-                  placeholder="Enter your question"
-                  rows={3}
+        {/* Create Assessment Dialog */}
+        {isCreateDialogOpen && (
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+            <div style={{ backgroundColor: 'white', border: '1px solid #ccc', padding: '20px', maxWidth: '400px', width: '90%' }}>
+              <h2 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: 'bold' }}>Create New Assessment</h2>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Title</label>
+                <input
+                  type="text"
+                  value={assessmentTitle}
+                  onChange={(e) => setAssessmentTitle(e.target.value)}
+                  placeholder="Enter title"
+                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box' }}
                 />
               </div>
-              
-              <div>
-                <Label>Question Type</Label>
-                <RadioGroup value={questionType} onValueChange={(value) => setQuestionType(value as 'mcq' | 'text')}>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="mcq" id="mcq" />
-                    <Label htmlFor="mcq">Multiple Choice</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="text" id="text" />
-                    <Label htmlFor="text">Text Answer</Label>
-                  </div>
-                </RadioGroup>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Description</label>
+                <textarea
+                  value={assessmentDescription}
+                  onChange={(e) => setAssessmentDescription(e.target.value)}
+                  placeholder="Enter description"
+                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box', minHeight: '60px' }}
+                />
+              </div>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Course</label>
+                <select
+                  value={selectedCourse}
+                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px' }}
+                >
+                  <option value="">Select a course</option>
+                  {courses.map((course) => (
+                    <option key={course.id} value={course.id}>{course.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Time Limit (minutes)</label>
+                <input
+                  type="number"
+                  value={timeLimit}
+                  onChange={(e) => setTimeLimit(e.target.value)}
+                  placeholder="e.g. 60"
+                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box' }}
+                />
+              </div>
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => setIsCreateDialogOpen(false)}
+                  style={{ padding: '6px 12px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCreateAssessment}
+                  disabled={isSaving}
+                  style={{ padding: '6px 12px', backgroundColor: '#FF9800', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  Create
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Add Question Dialog */}
+        {isQuestionDialogOpen && (
+          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
+            <div style={{ backgroundColor: 'white', border: '1px solid #ccc', padding: '20px', maxWidth: '450px', width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
+              <h2 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: 'bold' }}>{editingQuestion ? 'Update' : 'Add'} Question</h2>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Question</label>
+                <textarea
+                  value={questionText}
+                  onChange={(e) => setQuestionText(e.target.value)}
+                  placeholder="Enter question"
+                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box', minHeight: '60px' }}
+                />
+              </div>
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Type</label>
+                <div style={{ display: 'flex', gap: '15px' }}>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      value="mcq"
+                      checked={questionType === 'mcq'}
+                      onChange={(e) => setQuestionType(e.target.value as 'mcq' | 'text')}
+                    />
+                    <span style={{ fontSize: '12px' }}>Multiple Choice</span>
+                  </label>
+                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
+                    <input
+                      type="radio"
+                      value="text"
+                      checked={questionType === 'text'}
+                      onChange={(e) => setQuestionType(e.target.value as 'mcq' | 'text')}
+                    />
+                    <span style={{ fontSize: '12px' }}>Text Answer</span>
+                  </label>
+                </div>
               </div>
 
               {questionType === 'mcq' && (
-                <div className="space-y-2">
-                  <Label>Answer Options</Label>
-                  {options.map((option, index) => (
-                    <Input
-                      key={index}
-                      value={option}
-                      onChange={(e) => {
-                        const newOptions = [...options];
-                        newOptions[index] = e.target.value;
-                        setOptions(newOptions);
-                      }}
-                      placeholder={`Option ${index + 1}`}
-                    />
-                  ))}
-                  <div>
-                    <Label htmlFor="correct-answer">Correct Answer</Label>
-                    <Select value={correctAnswer} onValueChange={setCorrectAnswer}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select correct answer" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {options.filter(opt => opt.trim()).map((option, index) => (
-                          <SelectItem key={index} value={option}>
-                            {option}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                <>
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Options</label>
+                    {options.map((option, index) => (
+                      <input
+                        key={index}
+                        type="text"
+                        value={option}
+                        onChange={(e) => {
+                          const newOptions = [...options];
+                          newOptions[index] = e.target.value;
+                          setOptions(newOptions);
+                        }}
+                        placeholder={`Option ${index + 1}`}
+                        style={{ width: '100%', padding: '4px', border: '1px solid #999', fontSize: '11px', marginBottom: '5px', boxSizing: 'border-box' }}
+                      />
+                    ))}
                   </div>
-                </div>
+                  <div style={{ marginBottom: '15px' }}>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Correct Answer</label>
+                    <select
+                      value={correctAnswer}
+                      onChange={(e) => setCorrectAnswer(e.target.value)}
+                      style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px' }}
+                    >
+                      <option value="">Select correct answer</option>
+                      {options.filter(opt => opt.trim()).map((option, index) => (
+                        <option key={index} value={option}>{option}</option>
+                      ))}
+                    </select>
+                  </div>
+                </>
               )}
 
               {questionType === 'text' && (
-                <div>
-                  <Label htmlFor="model-answer">Model Answer</Label>
-                  <Textarea
-                    id="model-answer"
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Model Answer</label>
+                  <textarea
                     value={modelAnswer}
                     onChange={(e) => setModelAnswer(e.target.value)}
-                    placeholder="Enter the model/expected answer"
-                    rows={4}
+                    placeholder="Enter model answer"
+                    style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box', minHeight: '60px' }}
                   />
                 </div>
               )}
 
-              <div>
-                <Label htmlFor="points">Points</Label>
-                <Input
-                  id="points"
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Points</label>
+                <input
                   type="number"
                   value={points}
                   onChange={(e) => setPoints(e.target.value)}
-                  placeholder="Enter points for this question"
-                  min="1"
+                  placeholder="e.g. 5"
+                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box' }}
                 />
               </div>
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                <button
+                  onClick={() => {
+                    setIsQuestionDialogOpen(false);
+                    resetQuestionForm();
+                  }}
+                  style={{ padding: '6px 12px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={editingQuestion ? handleUpdateQuestion : handleAddQuestion}
+                  disabled={isSaving}
+                  style={{ padding: '6px 12px', backgroundColor: '#2196F3', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+                >
+                  {editingQuestion ? 'Update' : 'Add'} Question
+                </button>
+              </div>
             </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => {
-                setIsQuestionDialogOpen(false);
-                resetQuestionForm();
-              }} disabled={isSaving}>
-                Cancel
-              </Button>
-              <Button onClick={editingQuestion ? handleUpdateQuestion : handleAddQuestion} disabled={isSaving}>
-                {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                {editingQuestion ? 'Update Question' : 'Add Question'}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+          </div>
+        )}
       </div>
     </div>
   );

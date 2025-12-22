@@ -1,7 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Home, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const NotFound = () => {
@@ -15,11 +13,9 @@ const NotFound = () => {
 
   const handleGoHome = () => {
     if (user) {
-      // Redirect to appropriate dashboard based on role
       const dashboardPath = user.role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard';
       navigate(dashboardPath, { replace: true });
     } else {
-      // Redirect to login if not authenticated
       navigate('/login', { replace: true });
     }
   };
@@ -29,39 +25,26 @@ const NotFound = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      <div className="text-center space-y-6 p-8">
-        <div className="space-y-2">
-          <h1 className="text-9xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            404
-          </h1>
-          <h2 className="text-3xl font-semibold text-foreground">
-            Page Not Found
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-md mx-auto">
-            Oops! The page you're looking for doesn't exist or has been moved.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Path: <code className="px-2 py-1 bg-muted rounded">{location.pathname}</code>
-          </p>
-        </div>
+    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff', padding: '20px' }}>
+      <div style={{ textAlign: 'center', maxWidth: '400px' }}>
+        <h1 style={{ fontSize: '72px', fontWeight: 'bold', margin: '0', color: '#000' }}>404</h1>
+        <h2 style={{ fontSize: '20px', fontWeight: 'bold', margin: '10px 0', color: '#000' }}>Page Not Found</h2>
+        <p style={{ fontSize: '13px', color: '#666', margin: '10px 0' }}>The page you're looking for doesn't exist.</p>
+        <p style={{ fontSize: '11px', color: '#999', margin: '10px 0' }}>Path: {location.pathname}</p>
         
-        <div className="flex items-center justify-center gap-4 pt-4">
-          <Button 
-            variant="outline" 
+        <div style={{ display: 'flex', gap: '10px', justifyContent: 'center', marginTop: '20px' }}>
+          <button 
             onClick={handleGoBack}
-            className="flex items-center gap-2"
+            style={{ padding: '8px 15px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '12px' }}
           >
-            <ArrowLeft className="h-4 w-4" />
             Go Back
-          </Button>
-          <Button 
+          </button>
+          <button 
             onClick={handleGoHome}
-            className="flex items-center gap-2"
+            style={{ padding: '8px 15px', backgroundColor: '#2196F3', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
           >
-            <Home className="h-4 w-4" />
             {user ? 'Go to Dashboard' : 'Go to Login'}
-          </Button>
+          </button>
         </div>
       </div>
     </div>
