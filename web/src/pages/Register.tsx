@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { GraduationCap, Eye, EyeOff, UserCircle, BookOpen } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 const Register: React.FC = () => {
@@ -16,14 +10,11 @@ const Register: React.FC = () => {
     confirmPassword: '',
     name: '',
   });
-  const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [activeTab, setActiveTab] = useState<'student' | 'teacher'>('student');
   const { user, register, isLoading } = useAuth();
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Redirect if already logged in
   useEffect(() => {
     if (user && !isLoading) {
       const redirectPath = user.role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard';
@@ -108,149 +99,246 @@ const Register: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-primary/5 via-background to-secondary/5 flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <Card className="shadow-lg border-0 bg-card/80 backdrop-blur-sm">
-          <CardHeader className="text-center space-y-4">
-            <div className="flex justify-center">
-              <div className="p-3 rounded-full bg-gradient-to-r from-primary to-secondary">
-                <GraduationCap className="h-8 w-8 text-white" />
-              </div>
-            </div>
-            <div>
-              <CardTitle className="text-2xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-                Create Account
-              </CardTitle>
-              <CardDescription className="text-muted-foreground mt-2">
-                Join EduPortal and start your learning journey
-              </CardDescription>
-            </div>
-          </CardHeader>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f8f9fa',
+      padding: '20px'
+    }}>
+      <div style={{
+        width: '100%',
+        maxWidth: '500px',
+        background: 'white',
+        borderRadius: '12px',
+        border: '1px solid #e2e8f0',
+        padding: '40px'
+      }}>
+        {/* Logo Section */}
+        <div style={{ textAlign: 'center', marginBottom: '32px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '12px' }}>
+            <svg width="40" height="40" viewBox="0 0 100 100" style={{ flexShrink: 0 }}>
+              {/* Circle background */}
+              <circle cx="50" cy="50" r="48" fill="none" stroke="#0066cc" strokeWidth="6"/>
+              {/* 360 degrees indicator - three arc segments */}
+              <path d="M 50 10 A 40 40 0 0 1 90 50" fill="none" stroke="#0066cc" strokeWidth="4" strokeLinecap="round"/>
+              <circle cx="50" cy="50" r="8" fill="#0066cc"/>
+            </svg>
+          </div>
+          <h1 style={{ fontSize: '28px', fontWeight: '700', margin: '0 0 8px 0', color: '#0066cc' }}>Study360</h1>
+          <p style={{ fontSize: '14px', color: '#718096', margin: '0' }}>Create your account</p>
+        </div>
+
+        {/* Role Selection */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', marginBottom: '28px' }}>
+          {['student', 'teacher'].map((role) => (
+            <button
+              key={role}
+              type="button"
+              onClick={() => setActiveTab(role as 'student' | 'teacher')}
+              style={{
+                padding: '14px 16px',
+                backgroundColor: activeTab === role ? '#0066cc' : '#f0f4f8',
+                color: activeTab === role ? 'white' : '#2d3748',
+                border: `2px solid ${activeTab === role ? '#0066cc' : '#e8eef7'}`,
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                transition: 'all 0.3s ease'
+              }}
+              onMouseOver={(e) => {
+                if (activeTab !== role) {
+                  (e.currentTarget as HTMLElement).style.backgroundColor = '#e8eef7';
+                  (e.currentTarget as HTMLElement).style.borderColor = '#0066cc';
+                }
+              }}
+              onMouseOut={(e) => {
+                if (activeTab !== role) {
+                  (e.currentTarget as HTMLElement).style.backgroundColor = '#f0f4f8';
+                  (e.currentTarget as HTMLElement).style.borderColor = '#e8eef7';
+                }
+              }}
+            >
+              {role === 'student' ? '👤 Student' : '👨‍🏫 Teacher'}
+            </button>
+          ))}
+        </div>
+
+        {/* Form */}
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+          <div>
+            <label htmlFor="name" style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#2d3748' }}>Full Name</label>
+            <input
+              id="name"
+              name="name"
+              type="text"
+              value={formData.name}
+              onChange={handleInputChange}
+              placeholder="Enter your full name"
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '2px solid #e2e8f0',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                fontFamily: 'inherit',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+              onFocus={(e) => {
+                (e.target as HTMLElement).style.borderColor = '#0066cc';
+                (e.target as HTMLElement).style.boxShadow = '0 0 0 3px rgba(0, 102, 204, 0.1)';
+              }}
+              onBlur={(e) => {
+                (e.target as HTMLElement).style.borderColor = '#e2e8f0';
+                (e.target as HTMLElement).style.boxShadow = 'none';
+              }}
+            />
+          </div>
+
+          <div>
+            <label htmlFor="username" style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#2d3748' }}>Username</label>
+            <input
+              id="username"
+              name="username"
+              type="text"
+              value={formData.username}
+              onChange={handleInputChange}
+              placeholder="Choose a username (min. 3 characters)"
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '2px solid #e2e8f0',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                fontFamily: 'inherit',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+              onFocus={(e) => {
+                (e.target as HTMLElement).style.borderColor = '#0066cc';
+                (e.target as HTMLElement).style.boxShadow = '0 0 0 3px rgba(0, 102, 204, 0.1)';
+              }}
+              onBlur={(e) => {
+                (e.target as HTMLElement).style.borderColor = '#e2e8f0';
+                (e.target as HTMLElement).style.boxShadow = 'none';
+              }}
+            />
+          </div>
           
-          <CardContent>
-            <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as 'student' | 'teacher')} className="mb-6">
-              <TabsList className="grid w-full grid-cols-2">
-                <TabsTrigger value="student" className="flex items-center gap-2">
-                  <UserCircle className="h-4 w-4" />
-                  Student
-                </TabsTrigger>
-                <TabsTrigger value="teacher" className="flex items-center gap-2">
-                  <BookOpen className="h-4 w-4" />
-                  Teacher
-                </TabsTrigger>
-              </TabsList>
-            </Tabs>
+          <div>
+            <label htmlFor="password" style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#2d3748' }}>Password</label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              placeholder="Create a password (min. 6 characters)"
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '2px solid #e2e8f0',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                fontFamily: 'inherit',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+              onFocus={(e) => {
+                (e.target as HTMLElement).style.borderColor = '#0066cc';
+                (e.target as HTMLElement).style.boxShadow = '0 0 0 3px rgba(0, 102, 204, 0.1)';
+              }}
+              onBlur={(e) => {
+                (e.target as HTMLElement).style.borderColor = '#e2e8f0';
+                (e.target as HTMLElement).style.boxShadow = 'none';
+              }}
+            />
+          </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="name">Full Name</Label>
-                <Input
-                  id="name"
-                  name="name"
-                  type="text"
-                  value={formData.name}
-                  onChange={handleInputChange}
-                  placeholder="Enter your full name"
-                  className="h-11"
-                />
-              </div>
+          <div>
+            <label htmlFor="confirmPassword" style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#2d3748' }}>Confirm Password</label>
+            <input
+              id="confirmPassword"
+              name="confirmPassword"
+              type="password"
+              value={formData.confirmPassword}
+              onChange={handleInputChange}
+              placeholder="Confirm your password"
+              style={{
+                width: '100%',
+                padding: '12px 16px',
+                border: '2px solid #e2e8f0',
+                borderRadius: '8px',
+                fontSize: '14px',
+                boxSizing: 'border-box',
+                fontFamily: 'inherit',
+                transition: 'all 0.3s ease',
+                outline: 'none'
+              }}
+              onFocus={(e) => {
+                (e.target as HTMLElement).style.borderColor = '#0066cc';
+                (e.target as HTMLElement).style.boxShadow = '0 0 0 3px rgba(0, 102, 204, 0.1)';
+              }}
+              onBlur={(e) => {
+                (e.target as HTMLElement).style.borderColor = '#e2e8f0';
+                (e.target as HTMLElement).style.boxShadow = 'none';
+              }}
+            />
+          </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="username">Username</Label>
-                <Input
-                  id="username"
-                  name="username"
-                  type="text"
-                  value={formData.username}
-                  onChange={handleInputChange}
-                  placeholder="Choose a username"
-                  className="h-11"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
-                <div className="relative">
-                  <Input
-                    id="password"
-                    name="password"
-                    type={showPassword ? "text" : "password"}
-                    value={formData.password}
-                    onChange={handleInputChange}
-                    placeholder="Create a password (min. 6 characters)"
-                    className="h-11 pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-11 w-10"
-                    onClick={() => setShowPassword(!showPassword)}
-                  >
-                    {showPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
+          <button
+            type="submit"
+            disabled={isLoading}
+            style={{
+              padding: '12px 16px',
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: isLoading ? 'not-allowed' : 'pointer',
+              fontSize: '16px',
+              fontWeight: '600',
+              transition: 'all 0.3s ease',
+              opacity: isLoading ? 0.7 : 1,
+              marginTop: '8px'
+            }}
+            onMouseOver={(e) => {
+              if (!isLoading) {
+                (e.currentTarget as HTMLElement).style.transform = 'translateY(-2px)';
+                (e.currentTarget as HTMLElement).style.boxShadow = '0 8px 16px rgba(118, 75, 162, 0.3)';
+              }
+            }}
+            onMouseOut={(e) => {
+              (e.currentTarget as HTMLElement).style.transform = 'translateY(0)';
+              (e.currentTarget as HTMLElement).style.boxShadow = 'none';
+            }}
+          >
+            {isLoading ? 'Creating account...' : `Register as ${activeTab === 'student' ? 'Student' : 'Teacher'}`}
+          </button>
+        </form>
 
-              <div className="space-y-2">
-                <Label htmlFor="confirmPassword">Confirm Password</Label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    value={formData.confirmPassword}
-                    onChange={handleInputChange}
-                    placeholder="Confirm your password"
-                    className="h-11 pr-10"
-                  />
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    className="absolute right-0 top-0 h-11 w-10"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  >
-                    {showConfirmPassword ? (
-                      <EyeOff className="h-4 w-4" />
-                    ) : (
-                      <Eye className="h-4 w-4" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                className="w-full h-11"
-                variant="gradient"
-                disabled={isLoading}
-              >
-                {isLoading ? (
-                  <div className="flex items-center space-x-2">
-                    <div className="h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"></div>
-                    <span>Creating account...</span>
-                  </div>
-                ) : (
-                  `Register as ${activeTab === 'student' ? 'Student' : 'Teacher'}`
-                )}
-              </Button>
-            </form>
-
-            <div className="mt-6 text-center">
-              <p className="text-sm text-muted-foreground">
-                Already have an account?{' '}
-                <Link to="/login" className="text-primary hover:underline font-medium">
-                  Sign in
-                </Link>
-              </p>
-            </div>
-          </CardContent>
-        </Card>
+        {/* Login Link */}
+        <div style={{ marginTop: '24px', textAlign: 'center', fontSize: '14px', color: '#718096' }}>
+          <p style={{ margin: '0' }}>
+            Already have an account?{' '}
+            <Link to="/login" style={{ color: '#0066cc', textDecoration: 'none', fontWeight: '600', transition: 'color 0.3s ease' }}
+              onMouseOver={(e) => {
+                (e.currentTarget as HTMLElement).style.color = '#0099ff';
+              }}
+              onMouseOut={(e) => {
+                (e.currentTarget as HTMLElement).style.color = '#0066cc';
+              }}
+            >
+              Sign in
+            </Link>
+          </p>
+        </div>
       </div>
     </div>
   );

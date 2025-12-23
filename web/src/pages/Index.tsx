@@ -9,33 +9,40 @@ const Index = () => {
   useEffect(() => {
     if (!isLoading) {
       if (user) {
-        // Redirect to appropriate dashboard based on role
         const redirectPath = user.role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard';
         navigate(redirectPath, { replace: true });
       } else {
-        // Not logged in, redirect to login
         navigate('/login', { replace: true });
       }
     }
   }, [user, isLoading, navigate]);
 
-  // Show loading while checking auth
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-background">
-        <div className="text-center space-y-4">
-          <div className="h-12 w-12 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-          <p className="text-muted-foreground">Loading...</p>
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f8f9fa'
+      }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '16px', color: '#718096', fontWeight: '500' }}>Loading...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-background">
-      <div className="text-center space-y-4">
-        <div className="h-12 w-12 mx-auto animate-spin rounded-full border-4 border-primary border-t-transparent"></div>
-        <p className="text-muted-foreground">Redirecting...</p>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f8f9fa'
+    }}>
+      <div style={{ textAlign: 'center' }}>
+        <div style={{ fontSize: '16px', color: '#718096', fontWeight: '500' }}>Redirecting...</div>
       </div>
     </div>
   );

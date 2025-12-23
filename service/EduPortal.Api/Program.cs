@@ -37,9 +37,30 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
-// Configure Database (Using In-Memory for demo, switch to SQL Server for production)
-builder.Services.AddDbContext<EduPortalDbContext>(options =>
-    options.UseInMemoryDatabase("EduPortalDb"));
+// Configure Database (auto-detect SQLite or SQL Server or In-Memory)
+var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+
+if (!string.IsNullOrEmpty(connectionString))
+{
+    if (connectionString.Contains("Data Source=") && connectionString.EndsWith(".db"))
+    {
+        // SQLite
+        builder.Services.AddDbContext<EduPortalDbContext>(options =>
+            options.UseSqlite(connectionString));
+    }
+    else
+    {
+        // SQL Server
+        builder.Services.AddDbContext<EduPortalDbContext>(options =>
+            options.UseSqlServer(connectionString));
+    }
+}
+else
+{
+    // In-Memory for demo
+    builder.Services.AddDbContext<EduPortalDbContext>(options =>
+        options.UseInMemoryDatabase("EduPortalDb"));
+}
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -66,7 +87,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Register HttpClient for Ollama
+// Register HttpClient for AI services
 builder.Services.AddHttpClient();
 
 // Register Services
@@ -74,18 +95,41 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IProgressService, ProgressService>();
-builder.Services.AddScoped<IAiEvaluationService, AiEvaluationService>();
+
+// Register AI Evaluation Service - Choose based on configuration
+var openRouterConfigSection = builder.Configuration.GetSection("OpenRouter");
+var openRouterEnabled = openRouterConfigSection["Enabled"] == "true" || openRouterConfigSection["Enabled"] == "True";
+var openRouterApiKey = openRouterConfigSection["ApiKey"] ?? "";
+
+Console.WriteLine($"[Config Debug] OpenRouter:Enabled = '{openRouterConfigSection["Enabled"]}'");
+Console.WriteLine($"[Config Debug] OpenRouter:ApiKey exists = {!string.IsNullOrWhiteSpace(openRouterApiKey)}");
+Console.WriteLine($"[Config Debug] openRouterEnabled parsed = {openRouterEnabled}");
+
+if (openRouterEnabled && !string.IsNullOrWhiteSpace(openRouterApiKey) && openRouterApiKey != "${OPENROUTER_API_KEY}")
+{
+    builder.Services.AddScoped<IAiEvaluationService, OpenRouterAiService>();
+    Console.WriteLine("✓ REGISTERED: OpenRouter AI Service (qwen/qwen-2.5-7b-instruct)");
+    Console.WriteLine($"✓ API Endpoint: {openRouterConfigSection["ApiUrl"]}");
+    Console.WriteLine($"✓ Model: {openRouterConfigSection["LlmModel"]}");
+}
+else
+{
+    builder.Services.AddScoped<IAiEvaluationService, AiEvaluationService>();
+    Console.WriteLine("✓ REGISTERED: Ollama AI Service (local)");
+    if (!openRouterEnabled) Console.WriteLine("  Reason: OpenRouter not enabled");
+    if (string.IsNullOrWhiteSpace(openRouterApiKey)) Console.WriteLine("  Reason: API Key is empty");
+    if (openRouterApiKey == "${OPENROUTER_API_KEY}") Console.WriteLine("  Reason: API Key is placeholder");
+}
 
 // Configure CORS
+var corsOrigins = builder.Configuration.GetSection("CorsOrigins").Get<string[]>() 
+    ?? new[] { "http://localhost", "http://localhost:5173", "http://localhost:3000", "http://localhost:8080" };
+
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowWeb", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:5173", 
-                "http://localhost:3000",
-                "http://localhost:8080",
-                "http://[::]:8080")
+        policy.WithOrigins(corsOrigins)
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials()
@@ -99,7 +143,34 @@ var app = builder.Build();
 using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<EduPortalDbContext>();
-    DbInitializer.Initialize(dbContext);
+    
+    try
+    {
+        // Ensure database directory exists (for SQLite)
+        var dbConnectionString = builder.Configuration.GetConnectionString("DefaultConnection");
+        if (!string.IsNullOrEmpty(dbConnectionString) && dbConnectionString.Contains("Data Source="))
+        {
+            var dbPath = dbConnectionString.Replace("Data Source=", "").Trim();
+            var dbDirectory = Path.GetDirectoryName(dbPath);
+            if (!string.IsNullOrEmpty(dbDirectory) && !Directory.Exists(dbDirectory))
+            {
+                Directory.CreateDirectory(dbDirectory);
+                Console.WriteLine($"Created database directory: {dbDirectory}");
+            }
+        }
+        
+        // Ensure database is created (for SQLite)
+        dbContext.Database.EnsureCreated();
+        
+        DbInitializer.Initialize(dbContext);
+        Console.WriteLine("Database initialized successfully");
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"Database initialization error: {ex.Message}");
+        Console.WriteLine($"Connection string: {builder.Configuration.GetConnectionString("DefaultConnection")}");
+        throw;
+    }
 }
 
 // Configure the HTTP request pipeline.
@@ -111,11 +182,29 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 app.UseCors("AllowWeb");
 
 app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();
+
+app.MapFallbackToFile("index.html");
+
+// Health check endpoint
+app.MapGet("/api/health", () => new
+{
+    status = "healthy",
+    timestamp = DateTime.UtcNow,
+    version = "1.0",
+    services = new
+    {
+        api = "running",
+        database = "connected"
+    }
+}).AllowAnonymous();
 
 app.Run();

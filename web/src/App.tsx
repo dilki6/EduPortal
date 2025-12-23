@@ -14,7 +14,6 @@ import StudentDashboard from "./pages/StudentDashboard";
 import CourseManagement from "./pages/CourseManagement";
 import AssessmentManagement from "./pages/AssessmentManagement";
 import ReviewAnswers from "./pages/ReviewAnswers";
-import TeacherAnalytics from "./pages/TeacherAnalytics";
 import MyCourses from "./pages/MyCourses";
 import MyProgress from "./pages/MyProgress";
 import AttemptAssessment from "./pages/AttemptAssessment";
@@ -67,12 +66,6 @@ const AppContent = () => {
           </ProtectedRoute>
         } />
 
-        <Route path="/analytics-teacher" element={
-          <ProtectedRoute allowedRoles={['teacher']}>
-            <TeacherAnalytics />
-          </ProtectedRoute>
-        } />
-
         <Route path="/my-courses" element={
           <ProtectedRoute allowedRoles={['student']}>
             <MyCourses />
@@ -80,12 +73,6 @@ const AppContent = () => {
         } />
 
         <Route path="/my-progress" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <MyProgress />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/analytics-student" element={
           <ProtectedRoute allowedRoles={['student']}>
             <MyProgress />
           </ProtectedRoute>

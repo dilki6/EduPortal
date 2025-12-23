@@ -1,7 +1,5 @@
 import { useNavigate, useLocation } from "react-router-dom";
 import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Home, ArrowLeft } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 
 const NotFound = () => {
@@ -15,11 +13,9 @@ const NotFound = () => {
 
   const handleGoHome = () => {
     if (user) {
-      // Redirect to appropriate dashboard based on role
       const dashboardPath = user.role === 'teacher' ? '/teacher-dashboard' : '/student-dashboard';
       navigate(dashboardPath, { replace: true });
     } else {
-      // Redirect to login if not authenticated
       navigate('/login', { replace: true });
     }
   };
@@ -29,39 +25,66 @@ const NotFound = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-primary/5 via-background to-secondary/5">
-      <div className="text-center space-y-6 p-8">
-        <div className="space-y-2">
-          <h1 className="text-9xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            404
-          </h1>
-          <h2 className="text-3xl font-semibold text-foreground">
-            Page Not Found
-          </h2>
-          <p className="text-lg text-muted-foreground max-w-md mx-auto">
-            Oops! The page you're looking for doesn't exist or has been moved.
-          </p>
-          <p className="text-sm text-muted-foreground">
-            Path: <code className="px-2 py-1 bg-muted rounded">{location.pathname}</code>
-          </p>
-        </div>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f8f9fa',
+      padding: '20px'
+    }}>
+      <div style={{
+        textAlign: 'center',
+        maxWidth: '500px',
+        background: 'white',
+        borderRadius: '16px',
+        padding: '48px 32px',
+        border: '1px solid #e2e8f0'
+      }}>
+        <div style={{ fontSize: '80px', marginBottom: '16px' }}>😕</div>
+        <h1 style={{ fontSize: '48px', fontWeight: '700', margin: '0 0 12px 0', color: '#0f172a' }}>404</h1>
+        <h2 style={{ fontSize: '24px', fontWeight: '700', margin: '0 0 12px 0', color: '#2d3748' }}>Page Not Found</h2>
+        <p style={{ fontSize: '16px', color: '#718096', margin: '0 0 8px 0' }}>The page you're looking for doesn't exist or has been moved.</p>
+        <p style={{ fontSize: '13px', color: '#a0aec0', margin: '0 0 24px 0' }}>Path: {location.pathname}</p>
         
-        <div className="flex items-center justify-center gap-4 pt-4">
-          <Button 
-            variant="outline" 
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'center', flexWrap: 'wrap' }}>
+          <button 
             onClick={handleGoBack}
-            className="flex items-center gap-2"
+            style={{
+              padding: '12px 24px',
+              backgroundColor: 'white',
+              color: '#0066cc',
+              border: '2px solid #0066cc',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600',
+              transition: 'all 0.3s ease'
+            }}
+            onMouseOver={(e) => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = '#f0f9ff';
+            }}
+            onMouseOut={(e) => {
+              (e.currentTarget as HTMLElement).style.backgroundColor = 'white';
+            }}
           >
-            <ArrowLeft className="h-4 w-4" />
-            Go Back
-          </Button>
-          <Button 
+            ← Go Back
+          </button>
+          <button 
             onClick={handleGoHome}
-            className="flex items-center gap-2"
+            style={{
+              padding: '12px 24px',
+              backgroundColor: '#0066cc',
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              cursor: 'pointer',
+              fontSize: '14px',
+              fontWeight: '600'
+            }}
           >
-            <Home className="h-4 w-4" />
-            {user ? 'Go to Dashboard' : 'Go to Login'}
-          </Button>
+            {user ? 'Go to Dashboard' : 'Go to Login'} →
+          </button>
         </div>
       </div>
     </div>

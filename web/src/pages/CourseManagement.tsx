@@ -1,17 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
-import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem, CommandList } from '@/components/ui/command';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { BookOpen, Plus, Users, Edit, Trash2, UserPlus, Loader2, Check, ChevronsUpDown, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'react-router-dom';
 import { courseApi, Course as ApiCourse, EnrollmentWithDetails, StudentDto } from '@/lib/api';
-import { cn } from '@/lib/utils';
 
 interface Course {
   id: string;
@@ -25,6 +15,7 @@ interface Course {
 
 const CourseManagement: React.FC = () => {
   const { toast } = useToast();
+  const location = useLocation();
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -49,6 +40,21 @@ const CourseManagement: React.FC = () => {
   useEffect(() => {
     fetchCourses();
   }, []);
+
+  // Handle edit course from location state
+  useEffect(() => {
+    if (location.state && (location.state as any).editCourseId && courses.length > 0) {
+      const courseToEdit = courses.find(c => c.id === (location.state as any).editCourseId);
+      if (courseToEdit) {
+        setEditingCourse(courseToEdit);
+        setCourseName(courseToEdit.name);
+        setCourseDescription(courseToEdit.description);
+        setIsEditDialogOpen(true);
+        // Clear the state after using it
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [courses, location]);
 
   const fetchCourses = async () => {
     try {
@@ -378,347 +384,374 @@ const CourseManagement: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center space-y-4">
-          <Loader2 className="h-12 w-12 mx-auto animate-spin text-primary" />
-          <p className="text-muted-foreground">Loading courses...</p>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+        <div style={{ textAlign: 'center' }}>
+          <div style={{ fontSize: '14px', color: '#666' }}>Loading courses...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', padding: '24px 20px' }}>
+      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
         {/* Header */}
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Course Management</h1>
-            <p className="text-muted-foreground">Create and manage your courses</p>
-          </div>
-          
-          <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-            <DialogTrigger asChild>
-              <Button variant="gradient" className="flex items-center gap-2">
-                <Plus className="h-4 w-4" />
-                Create Course
-              </Button>
-            </DialogTrigger>
-            <DialogContent>
-              <DialogHeader>
-                <DialogTitle>Create New Course</DialogTitle>
-                <DialogDescription>
-                  Add a new course to your curriculum
-                </DialogDescription>
-              </DialogHeader>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="course-name">Course Name</Label>
-                  <Input
-                    id="course-name"
-                    value={courseName}
-                    onChange={(e) => setCourseName(e.target.value)}
-                    placeholder="Enter course name"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="course-description">Course Description</Label>
-                  <Textarea
-                    id="course-description"
-                    value={courseDescription}
-                    onChange={(e) => setCourseDescription(e.target.value)}
-                    placeholder="Enter course description"
-                    rows={3}
-                  />
-                </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setIsCreateDialogOpen(false)} disabled={isSaving}>
-                  Cancel
-                </Button>
-                <Button onClick={handleCreateCourse} disabled={isSaving}>
-                  {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  Create Course
-                </Button>
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+        <div style={{ marginBottom: '24px' }}>
+          <h1 style={{ fontSize: '26px', fontWeight: '700', margin: '0 0 4px 0', color: '#0f172a' }}>Courses</h1>
+          <p style={{ color: '#718096', margin: '0', fontSize: '13px' }}>Create and manage your courses</p>
         </div>
 
-        {/* Courses Grid */}
+        {/* Create Button */}
+        <div style={{ marginBottom: '20px' }}>
+          <button
+            onClick={() => setIsCreateDialogOpen(true)}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: '#0066cc',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}
+          >
+            + New Course
+          </button>
+        </div>
+
+        {/* Courses List */}
         {courses.length === 0 ? (
-          <Card className="p-12">
-            <div className="text-center space-y-4">
-              <BookOpen className="h-16 w-16 mx-auto text-muted-foreground" />
-              <div>
-                <h3 className="text-xl font-semibold mb-2">No Courses Yet</h3>
-                <p className="text-muted-foreground mb-4">
-                  Get started by creating your first course
-                </p>
-                <Button onClick={() => setIsCreateDialogOpen(true)}>
-                  <Plus className="h-4 w-4 mr-2" />
-                  Create Your First Course
-                </Button>
-              </div>
-            </div>
-          </Card>
+          <div style={{ padding: '20px 0', color: '#718096', fontSize: '13px', textAlign: 'center' }}>
+            No courses yet. Create one to get started.
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {courses.map((course) => (
-            <Card key={course.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <BookOpen className="h-8 w-8 text-primary" />
-                  <div className="flex gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
+              <div key={course.id} style={{ padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '6px' }}>
+                  <div style={{ flex: 1 }}>
+                    <h3 style={{ margin: '0', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{course.name}</h3>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#718096' }}>{course.description}</p>
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
                       onClick={() => openEditDialog(course)}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#0066cc',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: '600'
+                      }}
                     >
-                      <Edit className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
+                      Edit
+                    </button>
+                    <button
                       onClick={() => handleDeleteCourse(course.id, course.name)}
-                      className="text-destructive hover:text-destructive"
                       disabled={deletingCourseId === course.id}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#e53e3e',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        opacity: deletingCourseId === course.id ? 0.6 : 1
+                      }}
                     >
-                      {deletingCourseId === course.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <Trash2 className="h-4 w-4" />
-                      )}
-                    </Button>
+                      Delete
+                    </button>
                   </div>
                 </div>
-                <CardTitle className="text-xl">{course.name}</CardTitle>
-                <CardDescription>{course.description}</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <Users className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">
-                      {course.enrolledStudents.length} students
-                    </span>
-                  </div>
-                  <Badge variant="secondary">
-                    Created {new Date(course.createdAt).toLocaleDateString()}
-                  </Badge>
+                <div style={{ fontSize: '11px', color: '#718096' }}>
+                  {course.enrolledStudents.length} students
                 </div>
-
-                {course.enrolledStudents.length > 0 && (
-                  <div>
-                    <p className="text-sm font-medium mb-2">Enrolled Students:</p>
-                    <div className="space-y-1">
-                      {course.enrolledStudents.slice(0, 3).map((enrollment) => (
-                        <Badge key={enrollment.id} variant="outline" className="text-xs">
-                          {enrollment.studentName}
-                        </Badge>
-                      ))}
-                      {course.enrolledStudents.length > 3 && (
-                        <Badge variant="outline" className="text-xs">
-                          +{course.enrolledStudents.length - 3} more
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                )}
-
-                <Button
-                  variant="outline"
-                  size="sm"
-                  className="w-full"
+                <button
                   onClick={() => openEnrollDialog(course)}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    backgroundColor: '#0066cc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    marginTop: '6px'
+                  }}
                 >
-                  <UserPlus className="h-4 w-4 mr-2" />
-                  Manage Enrollments
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                  Manage
+                </button>
+              </div>
+            ))}
           </div>
         )}
 
-        {/* Edit Course Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent>
-            <DialogHeader>
-              <DialogTitle>Edit Course</DialogTitle>
-              <DialogDescription>
-                Update course information
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4">
-              <div>
-                <Label htmlFor="edit-course-name">Course Name</Label>
-                <Input
-                  id="edit-course-name"
-                  value={courseName}
-                  onChange={(e) => setCourseName(e.target.value)}
-                  placeholder="Enter course name"
-                />
-              </div>
-              <div>
-                <Label htmlFor="edit-course-description">Course Description</Label>
-                <Textarea
-                  id="edit-course-description"
-                  value={courseDescription}
-                  onChange={(e) => setCourseDescription(e.target.value)}
-                  placeholder="Enter course description"
-                  rows={3}
-                />
-              </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsEditDialogOpen(false)} disabled={isSaving}>
-                Cancel
-              </Button>
-              <Button onClick={handleEditCourse} disabled={isSaving}>
-                {isSaving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                Update Course
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+        {/* Create/Edit Dialog */}
+        {(isCreateDialogOpen || isEditDialogOpen) && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '24px',
+              borderRadius: '8px',
+              maxWidth: '500px',
+              width: '90%',
+              border: '1px solid #e2e8f0'
+            }}>
+              <h2 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
+                {isEditDialogOpen ? 'Edit Course' : 'Create New Course'}
+              </h2>
 
-        {/* Enroll Student Dialog */}
-        <Dialog open={isEnrollDialogOpen} onOpenChange={(open) => !open && closeEnrollDialog()}>
-          <DialogContent className="max-w-2xl max-h-[80vh]">
-            <DialogHeader>
-              <DialogTitle>Course Enrollments</DialogTitle>
-              <DialogDescription>
-                Manage students enrolled in {enrollingCourse?.name}
-              </DialogDescription>
-            </DialogHeader>
-            
-            <div className="space-y-6">
-              {/* Enroll New Student Section */}
-              <div className="space-y-3 pb-4 border-b">
-                <h3 className="text-sm font-semibold">Enroll New Student</h3>
-                <div className="flex gap-2">
-                  <div className="flex-1">
-                    <Popover open={openCombobox} onOpenChange={setOpenCombobox}>
-                      <PopoverTrigger asChild>
-                        <Button
-                          variant="outline"
-                          role="combobox"
-                          aria-expanded={openCombobox}
-                          className="w-full justify-between"
-                          disabled={isLoadingStudents}
-                        >
-                          {selectedStudent
-                            ? getAvailableStudents().find((student) => student.id === selectedStudent)?.name
-                            : isLoadingStudents 
-                              ? "Loading students..." 
-                              : "Search and select a student..."}
-                          <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
-                        </Button>
-                      </PopoverTrigger>
-                      <PopoverContent className="w-[400px] p-0">
-                        <Command>
-                          <CommandInput placeholder="Search student by name or email..." />
-                          <CommandList>
-                            <CommandEmpty>No student found.</CommandEmpty>
-                            <CommandGroup>
-                              {getAvailableStudents().map((student) => (
-                                <CommandItem
-                                  key={student.id}
-                                  value={`${student.name} ${student.email}`}
-                                  onSelect={() => {
-                                    setSelectedStudent(student.id);
-                                    setOpenCombobox(false);
-                                  }}
-                                  className="hover:bg-primary/10 cursor-pointer"
-                                >
-                                  <Check
-                                    className={cn(
-                                      "mr-2 h-4 w-4",
-                                      selectedStudent === student.id ? "opacity-100" : "opacity-0"
-                                    )}
-                                  />
-                                  <div className="flex flex-col">
-                                    <span className="font-medium">{student.name}</span>
-                                    <span className="text-xs text-muted-foreground">{student.email}</span>
-                                  </div>
-                                </CommandItem>
-                              ))}
-                              {getAvailableStudents().length === 0 && !isLoadingStudents && (
-                                <CommandItem disabled>
-                                  All students are already enrolled
-                                </CommandItem>
-                              )}
-                            </CommandGroup>
-                          </CommandList>
-                        </Command>
-                      </PopoverContent>
-                    </Popover>
-                  </div>
-                  <Button 
-                    onClick={handleEnrollStudent} 
-                    disabled={!selectedStudent || isEnrolling || isLoadingStudents}
-                  >
-                    {isEnrolling && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                    Enroll
-                  </Button>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Name</label>
+                  <input
+                    type="text"
+                    placeholder="Course name"
+                    value={courseName}
+                    onChange={(e) => setCourseName(e.target.value)}
+                    style={{
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Description</label>
+                  <textarea
+                    placeholder="Course description"
+                    value={courseDescription}
+                    onChange={(e) => setCourseDescription(e.target.value)}
+                    style={{
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                      minHeight: '80px'
+                    }}
+                  />
                 </div>
               </div>
 
-              {/* Enrolled Students List */}
-              <div className="space-y-3">
-                <h3 className="text-sm font-semibold">
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={isEditDialogOpen ? handleEditCourse : handleCreateCourse}
+                  disabled={isSaving}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    backgroundColor: '#0066cc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    opacity: isSaving ? 0.6 : 1
+                  }}
+                >
+                  {isSaving ? 'Saving...' : isEditDialogOpen ? 'Update' : 'Create'}
+                </button>
+                <button
+                  onClick={() => {
+                    setIsCreateDialogOpen(false);
+                    setIsEditDialogOpen(false);
+                    setEditingCourse(null);
+                    setCourseName('');
+                    setCourseDescription('');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    backgroundColor: '#f3f4f6',
+                    color: '#0f172a',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Enroll Student Dialog */}
+        {isEnrollDialogOpen && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '24px',
+              borderRadius: '8px',
+              maxWidth: '500px',
+              width: '90%',
+              border: '1px solid #e2e8f0',
+              maxHeight: '80vh',
+              overflowY: 'auto'
+            }}>
+              <h2 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
+                Manage Enrollments
+              </h2>
+              <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: '#718096' }}>
+                {enrollingCourse?.name}
+              </p>
+
+              <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e2e8f0' }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>Enroll New Student</h3>
+                <div style={{ display: 'flex', gap: '8px' }}>
+                  <select
+                    value={selectedStudent}
+                    onChange={(e) => setSelectedStudent(e.target.value)}
+                    disabled={isLoadingStudents}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit'
+                    }}
+                  >
+                    <option value="">Select a student...</option>
+                    {getAvailableStudents().map((student) => (
+                      <option key={student.id} value={student.id}>
+                        {student.name} ({student.email})
+                      </option>
+                    ))}
+                  </select>
+                  <button
+                    onClick={handleEnrollStudent}
+                    disabled={!selectedStudent || isEnrolling}
+                    style={{
+                      padding: '8px 14px',
+                      backgroundColor: '#0066cc',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      opacity: !selectedStudent || isEnrolling ? 0.6 : 1
+                    }}
+                  >
+                    Enroll
+                  </button>
+                </div>
+              </div>
+
+              <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
                   Enrolled Students ({enrollingCourse?.enrolledStudents.length || 0})
                 </h3>
-                
                 {enrollingCourse && enrollingCourse.enrolledStudents.length > 0 ? (
-                  <div className="space-y-2 max-h-[300px] overflow-y-auto pr-2">
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '300px', overflowY: 'auto' }}>
                     {enrollingCourse.enrolledStudents.map((enrollment) => (
-                      <div key={enrollment.id} className="flex items-center justify-between gap-3 p-3 border rounded-lg hover:bg-primary/5 transition-colors">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium truncate">{enrollment.studentName}</p>
-                          <p className="text-sm text-muted-foreground truncate">{enrollment.studentEmail}</p>
+                      <div
+                        key={enrollment.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '8px',
+                          borderBottom: '1px solid #e2e8f0'
+                        }}
+                      >
+                        <div style={{ flex: 1, fontSize: '12px' }}>
+                          <div style={{ fontWeight: '600', color: '#0f172a', marginBottom: '2px' }}>{enrollment.studentName}</div>
+                          <div style={{ color: '#718096', fontSize: '11px' }}>{enrollment.studentEmail}</div>
                         </div>
-                        <div className="flex items-center gap-2 shrink-0">
-                          <Badge variant="secondary">
-                            {enrollment.progress}% Complete
-                          </Badge>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleUnenrollStudent(enrollment.id, enrollment.studentName)}
-                            disabled={unenrollingId === enrollment.id}
-                            className="text-destructive hover:text-destructive hover:bg-destructive/10"
-                          >
-                            {unenrollingId === enrollment.id ? (
-                              <Loader2 className="h-4 w-4 animate-spin" />
-                            ) : (
-                              <X className="h-4 w-4" />
-                            )}
-                          </Button>
-                        </div>
+                        <button
+                          onClick={() => handleUnenrollStudent(enrollment.id, enrollment.studentName)}
+                          disabled={unenrollingId === enrollment.id}
+                          style={{
+                            padding: '4px 10px',
+                            backgroundColor: '#e53e3e',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            opacity: unenrollingId === enrollment.id ? 0.6 : 1
+                          }}
+                        >
+                          Remove
+                        </button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="text-center py-8 border rounded-lg bg-muted/50">
-                    <Users className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
-                    <p className="text-muted-foreground">No students enrolled yet</p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Use the form above to enroll your first student
-                    </p>
+                  <div style={{
+                    padding: '12px',
+                    color: '#718096',
+                    fontSize: '12px',
+                    textAlign: 'center'
+                  }}>
+                    No students enrolled yet
                   </div>
                 )}
               </div>
-            </div>
 
-            <DialogFooter>
-              <Button variant="outline" onClick={closeEnrollDialog}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button
+                  onClick={() => setIsEnrollDialogOpen(false)}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    backgroundColor: '#f3f4f6',
+                    color: '#0f172a',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );

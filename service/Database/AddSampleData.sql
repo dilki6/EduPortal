@@ -158,7 +158,7 @@ PRINT '=============================================';
 PRINT 'Test Login Credentials (All use password123):';
 PRINT '=============================================';
 PRINT 'Teachers:';
-PRINT '  - teacher1 / password123 (Dr. Sarah Wilson)';
+PRINT '  - teacher1 / password123 (Mr. Nimali Perera)';
 PRINT '  - teacher2 / password123 (Prof. Michael Chen)';
 PRINT '  - teacher3 / password123 (Prof. Michael Brown)';
 PRINT '  - teacher4 / password123 (Dr. Lisa Martinez)';

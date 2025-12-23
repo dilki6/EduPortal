@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  eduportal:
+    build: .
+    container_name: eduportal_app
+    ports:
+      - "8080:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Production
+      - ConnectionStrings__DefaultConnection=Server=sqlserver;Database=EduPortalDb;User Id=sa;Password=YourStrong!Passw0rd;TrustServerCertificate=True;
+      - Ollama__Url=http://ollama:11434
+      - JwtSettings__SecretKey=YourSuperSecretKeyForJWTTokenGeneration123456789
+    depends_on:
+      - sqlserver
+      - ollama
+    restart: unless-stopped
+
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: eduportal_db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=YourStrong!Passw0rd
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver_data:/var/opt/mssql
+    restart: unless-stopped
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: eduportal_ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    restart: unless-stopped
+
+volumes:
+  sqlserver_data:
+  ollama_data:

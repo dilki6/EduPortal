@@ -21,8 +21,8 @@ public static class DbInitializer
             Id = "1",
             Username = "teacher1",
             PasswordHash = BCrypt.Net.BCrypt.HashPassword("password123"),
-            Name = "Dr. Sarah Johnson",
-            Email = "sarah.johnson@university.edu",
+            Name = "Mr. Nimali Perera",
+            Email = "nimali.perera@university.edu",
             Role = UserRole.Teacher
         };
 

@@ -1,13 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Progress } from '@/components/ui/progress';
-import { Badge } from '@/components/ui/badge';
-import { Clock, FileText, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { assessmentApi, type Assessment, type Question, type AssessmentAttempt, type SubmitAnswerRequest } from '@/lib/api';
 
@@ -217,10 +209,9 @@ const AttemptAssessment: React.FC = () => {
   // Loading state
   if (loading || !assessment || !currentQuestion) {
     return (
-      <div className="min-h-screen bg-background flex items-center justify-center">
-        <div className="text-center">
-          <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-4" />
-          <p className="text-muted-foreground">Loading assessment...</p>
+      <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 20px' }}>
+        <div style={{ textAlign: 'center' }}>
+          <p style={{ color: '#718096', marginBottom: '12px' }}>Loading assessment...</p>
         </div>
       </div>
     );
@@ -229,185 +220,249 @@ const AttemptAssessment: React.FC = () => {
   // Submitted state
   if (isSubmitted) {
     return (
-      <div className="min-h-screen bg-background">
-        <div className="max-w-4xl mx-auto p-6 space-y-6">
-          <Card className="text-center">
-            <CardHeader>
-              <div className="flex justify-center mb-4">
-                <CheckCircle className="h-16 w-16 text-green-500" />
-              </div>
-              <CardTitle className="text-2xl">Assessment Submitted!</CardTitle>
-              <CardDescription>
-                Your responses have been submitted successfully
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              <div className="p-4 bg-muted/50 rounded-lg">
-                <p className="text-sm text-muted-foreground mb-2">
-                  Your assessment has been submitted for grading.
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  Text answers will be reviewed by your instructor. You can view your results in the Progress section.
-                </p>
-              </div>
-              
-              <Button onClick={() => navigate('/my-progress')} className="w-full">
-                View My Progress
-              </Button>
-            </CardContent>
-          </Card>
+      <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', padding: '24px 20px' }}>
+        <div style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
+          <div style={{ padding: '40px', backgroundColor: '#f0fdf4', border: '1px solid #86efac', borderRadius: '8px', marginBottom: '24px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: '700', color: '#10b981', margin: '0 0 8px 0' }}>Assessment Submitted!</h2>
+            <p style={{ color: '#718096', margin: '0 0 16px 0', fontSize: '14px' }}>Your responses have been submitted successfully</p>
+            <p style={{ color: '#718096', margin: '0 0 20px 0', fontSize: '13px' }}>
+              Text answers will be reviewed by your instructor. You can view your results in the Progress section.
+            </p>
+            <button
+              onClick={() => navigate('/my-progress')}
+              style={{
+                padding: '10px 24px',
+                backgroundColor: '#0066cc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600'
+              }}
+            >
+              View My Progress
+            </button>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-4xl mx-auto p-6 space-y-6">
+    <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', padding: '24px 20px' }}>
+      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
         {/* Header */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-center justify-between">
+        <div style={{ padding: '16px', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '24px', backgroundColor: '#f8f9fa' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '12px' }}>
+            <div>
+              <h1 style={{ fontSize: '22px', fontWeight: '700', margin: '0', color: '#0f172a' }}>{assessment.title}</h1>
+              <p style={{ fontSize: '13px', color: '#718096', margin: '4px 0 0 0' }}>{assessment.courseName || assessment.description}</p>
+            </div>
+            <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
               <div>
-                <CardTitle className="text-2xl">{assessment.title}</CardTitle>
-                <CardDescription>{assessment.courseName || assessment.description}</CardDescription>
+                <p style={{ fontSize: '12px', color: '#718096', margin: '0 0 4px 0' }}>Time Remaining</p>
+                <p style={{ fontSize: '18px', fontWeight: '700', margin: '0', color: timeRemaining < 300 ? '#e53e3e' : '#0f172a' }}>
+                  {formatTime(timeRemaining)}
+                </p>
               </div>
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <Clock className="h-4 w-4 text-primary" />
-                  <span className={`font-mono font-semibold ${timeRemaining < 300 ? 'text-red-500' : ''}`}>
-                    {formatTime(timeRemaining)}
-                  </span>
-                </div>
-                <Badge variant="outline">
-                  Question {currentQuestionIndex + 1} of {questions.length}
-                </Badge>
+              <div>
+                <p style={{ fontSize: '12px', color: '#718096', margin: '0 0 4px 0' }}>Progress</p>
+                <p style={{ fontSize: '13px', fontWeight: '600', margin: '0', color: '#0f172a' }}>
+                  Q {currentQuestionIndex + 1} / {questions.length}
+                </p>
               </div>
             </div>
-          </CardHeader>
-          <CardContent>
-            <Progress value={progress} className="h-2" />
-          </CardContent>
-        </Card>
+          </div>
+          {/* Progress bar */}
+          <div style={{ width: '100%', height: '3px', backgroundColor: '#e2e8f0', borderRadius: '2px', overflow: 'hidden' }}>
+            <div style={{ width: `${progress}%`, height: '100%', backgroundColor: '#0066cc', transition: 'width 0.3s ease' }}></div>
+          </div>
+        </div>
 
-        {/* Instructions (show only for first question) */}
+        {/* Instructions */}
         {currentQuestionIndex === 0 && (
-          <Card className="border-primary/20 bg-primary/5">
-            <CardHeader>
-              <CardTitle className="text-lg flex items-center gap-2">
-                <AlertCircle className="h-5 w-5" />
-                Instructions
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <p className="text-sm">
-                Read each question carefully. For multiple choice questions, select the best answer. 
-                For text questions, provide detailed explanations. You can navigate between questions 
-                using the Previous/Next buttons or by clicking the question numbers below.
-              </p>
-            </CardContent>
-          </Card>
+          <div style={{ padding: '16px', border: '1px solid #dbeafe', borderRadius: '8px', marginBottom: '24px', backgroundColor: '#f0f9ff' }}>
+            <h3 style={{ fontSize: '14px', fontWeight: '700', margin: '0 0 8px 0', color: '#0f172a' }}>Instructions</h3>
+            <p style={{ fontSize: '13px', color: '#718096', margin: '0', lineHeight: '1.5' }}>
+              Read each question carefully. For multiple choice questions, select the best answer. 
+              For text questions, provide detailed explanations. You can navigate between questions 
+              using the Previous/Next buttons or by clicking the question numbers below.
+            </p>
+          </div>
         )}
 
         {/* Current Question */}
-        <Card>
-          <CardHeader>
-            <div className="flex items-start justify-between">
-              <div className="flex items-start gap-3 flex-1">
-                <FileText className="h-5 w-5 text-primary mt-1 shrink-0" />
-                <div className="flex-1">
-                  <CardTitle className="text-lg">Question {currentQuestionIndex + 1}</CardTitle>
-                  <CardDescription className="mt-2 text-base">
-                    {currentQuestion.text}
-                  </CardDescription>
-                </div>
-              </div>
-              <Badge variant="outline" className="shrink-0">{currentQuestion.points} points</Badge>
+        <div style={{ padding: '20px', border: '1px solid #e2e8f0', borderRadius: '8px', marginBottom: '24px', backgroundColor: '#ffffff' }}>
+          <div style={{ marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+            <div>
+              <h2 style={{ fontSize: '16px', fontWeight: '700', margin: '0 0 8px 0', color: '#0f172a' }}>
+                Question {currentQuestionIndex + 1}
+              </h2>
+              <p style={{ fontSize: '14px', color: '#0f172a', margin: '0', lineHeight: '1.6' }}>
+                {currentQuestion.text}
+              </p>
             </div>
-          </CardHeader>
-          <CardContent className="space-y-6">
+            <span style={{ padding: '4px 12px', backgroundColor: '#f3f4f6', color: '#0f172a', borderRadius: '4px', fontSize: '12px', fontWeight: '600', whiteSpace: 'nowrap' }}>
+              {currentQuestion.points} points
+            </span>
+          </div>
+
+          <div style={{ marginTop: '20px' }}>
             {currentQuestion.type === 'MultipleChoice' && currentQuestion.options && currentQuestion.options.length > 0 ? (
-              <RadioGroup
-                value={getAnswer(currentQuestion.id)?.selectedOptionId || ''}
-                onValueChange={(value) => handleAnswerChange(currentQuestion.id, value, undefined)}
-              >
-                {currentQuestion.options.map((option, index) => (
-                  <div key={option.id} className="flex items-center space-x-2 p-3 rounded-lg border hover:bg-muted/50 cursor-pointer">
-                    <RadioGroupItem value={option.id} id={`option-${option.id}`} />
-                    <Label htmlFor={`option-${option.id}`} className="flex-1 cursor-pointer">
-                      <span className="font-medium mr-2">{String.fromCharCode(65 + index)}.</span>
-                      {option.text}
-                    </Label>
-                  </div>
-                ))}
-              </RadioGroup>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {currentQuestion.options.map((option, index) => {
+                  const isSelected = getAnswer(currentQuestion.id)?.selectedOptionId === option.id;
+                  return (
+                    <label
+                      key={option.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
+                        gap: '12px',
+                        padding: '12px',
+                        border: `2px solid ${isSelected ? '#0066cc' : '#e2e8f0'}`,
+                        borderRadius: '6px',
+                        cursor: 'pointer',
+                        backgroundColor: isSelected ? '#f0f9ff' : '#ffffff',
+                        transition: 'all 0.2s'
+                      }}
+                    >
+                      <input
+                        type="radio"
+                        name={`question-${currentQuestion.id}`}
+                        value={option.id}
+                        checked={isSelected}
+                        onChange={() => handleAnswerChange(currentQuestion.id, option.id, undefined)}
+                        style={{ marginTop: '4px', cursor: 'pointer' }}
+                      />
+                      <div style={{ flex: 1 }}>
+                        <span style={{ fontWeight: '600', marginRight: '8px', color: '#0f172a' }}>
+                          {String.fromCharCode(65 + index)}.
+                        </span>
+                        <span style={{ color: '#0f172a', fontSize: '14px' }}>{option.text}</span>
+                      </div>
+                    </label>
+                  );
+                })}
+              </div>
             ) : (
-              <div className="space-y-2">
-                <Label htmlFor="text-answer">Your Answer:</Label>
-                <Textarea
-                  id="text-answer"
+              <div>
+                <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: '#0f172a' }}>
+                  Your Answer:
+                </label>
+                <textarea
                   placeholder="Type your detailed answer here..."
                   value={getAnswer(currentQuestion.id)?.textAnswer || ''}
                   onChange={(e) => handleAnswerChange(currentQuestion.id, undefined, e.target.value)}
-                  className="min-h-32"
+                  style={{
+                    width: '100%',
+                    minHeight: '120px',
+                    padding: '12px',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '6px',
+                    fontSize: '14px',
+                    fontFamily: 'inherit',
+                    boxSizing: 'border-box',
+                    resize: 'vertical'
+                  }}
                 />
               </div>
             )}
-          </CardContent>
-        </Card>
+          </div>
+        </div>
 
-        {/* Navigation */}
-        <div className="flex items-center justify-between">
-          <Button
-            variant="outline"
-            onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
-            disabled={currentQuestionIndex === 0}
-          >
-            Previous
-          </Button>
-          
-          <div className="flex gap-2 flex-wrap justify-center">
+        {/* Question Navigation */}
+        <div style={{ marginBottom: '24px', padding: '16px', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+          <p style={{ fontSize: '12px', fontWeight: '600', color: '#0f172a', margin: '0 0 12px 0' }}>Questions</p>
+          <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
             {questions.map((q, index) => {
               const hasAnswer = getAnswer(q.id);
               const isAnswered = q.type === 'MultipleChoice' 
                 ? !!hasAnswer?.selectedOptionId 
                 : !!hasAnswer?.textAnswer?.trim();
-              
+              const isCurrent = index === currentQuestionIndex;
+
               return (
-                <Button
+                <button
                   key={q.id}
-                  variant={index === currentQuestionIndex ? "default" : isAnswered ? "secondary" : "outline"}
-                  size="sm"
                   onClick={() => setCurrentQuestionIndex(index)}
-                  className="w-10 h-10"
+                  style={{
+                    width: '40px',
+                    height: '40px',
+                    border: `2px solid ${isCurrent ? '#0066cc' : isAnswered ? '#10b981' : '#e2e8f0'}`,
+                    backgroundColor: isCurrent ? '#0066cc' : isAnswered ? '#f0fdf4' : '#ffffff',
+                    color: isCurrent ? 'white' : '#0f172a',
+                    borderRadius: '6px',
+                    cursor: 'pointer',
+                    fontSize: '13px',
+                    fontWeight: '600',
+                    transition: 'all 0.2s'
+                  }}
                 >
                   {index + 1}
-                </Button>
+                </button>
               );
             })}
           </div>
+        </div>
+
+        {/* Navigation Buttons */}
+        <div style={{ display: 'flex', gap: '12px', justifyContent: 'space-between' }}>
+          <button
+            onClick={() => setCurrentQuestionIndex(Math.max(0, currentQuestionIndex - 1))}
+            disabled={currentQuestionIndex === 0}
+            style={{
+              padding: '10px 24px',
+              backgroundColor: currentQuestionIndex === 0 ? '#f3f4f6' : '#ffffff',
+              color: currentQuestionIndex === 0 ? '#d1d5db' : '#0f172a',
+              border: '1px solid #e2e8f0',
+              borderRadius: '6px',
+              cursor: currentQuestionIndex === 0 ? 'not-allowed' : 'pointer',
+              fontSize: '14px',
+              fontWeight: '600',
+              transition: 'all 0.2s'
+            }}
+          >
+            Previous
+          </button>
 
           {currentQuestionIndex === questions.length - 1 ? (
-            <Button 
-              onClick={handleSubmit} 
+            <button
+              onClick={handleSubmit}
               disabled={submitting}
-              className="min-w-32"
+              style={{
+                padding: '10px 32px',
+                backgroundColor: '#0066cc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                opacity: submitting ? 0.6 : 1,
+                transition: 'all 0.2s'
+              }}
             >
-              {submitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Submitting...
-                </>
-              ) : (
-                'Submit Assessment'
-              )}
-            </Button>
+              {submitting ? 'Submitting...' : 'Submit Assessment'}
+            </button>
           ) : (
-            <Button
+            <button
               onClick={() => setCurrentQuestionIndex(Math.min(questions.length - 1, currentQuestionIndex + 1))}
+              style={{
+                padding: '10px 24px',
+                backgroundColor: '#0066cc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '6px',
+                cursor: 'pointer',
+                fontSize: '14px',
+                fontWeight: '600',
+                transition: 'all 0.2s'
+              }}
             >
               Next
-            </Button>
+            </button>
           )}
         </div>
       </div>
