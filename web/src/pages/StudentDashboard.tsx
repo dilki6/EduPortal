@@ -49,11 +49,17 @@ const StudentDashboard: React.FC = () => {
     );
   }
 
+  // Calculate overall progress from course progress
+  const overallProgress = progressData?.courseProgress && progressData.courseProgress.length > 0
+    ? Math.round(progressData.courseProgress.reduce((sum, cp) => sum + cp.progress, 0) / progressData.courseProgress.length)
+    : 0;
+
   const stats = {
     enrolledCourses: progressData?.totalCourses || 0,
     completedAssessments: progressData?.completedAssessments || 0,
     pendingAssessments: progressData?.pendingAssessments || 0,
-    averageScore: progressData?.averageScore || 0
+    averageScore: progressData?.averageScore || 0,
+    overallProgress: overallProgress
   };
 
   const coursesWithProgress = enrolledCourses.map(course => {
@@ -79,96 +85,114 @@ const StudentDashboard: React.FC = () => {
   };
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', padding: '24px 20px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#f8f9fa', padding: '24px 20px' }}>
       <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
         {/* Header */}
-        <div style={{ marginBottom: '28px' }}>
-          <h1 style={{ fontSize: '28px', fontWeight: '700', margin: '0 0 4px 0', color: '#0f172a' }}>Student Dashboard</h1>
-          <p style={{ color: '#718096', margin: '0', fontSize: '14px' }}>Your learning progress</p>
+        <div style={{ marginBottom: '32px' }}>
+          <h1 style={{ fontSize: '32px', fontWeight: '700', margin: '0 0 8px 0', color: '#0f172a' }}>My Learning Dashboard</h1>
+          <p style={{ color: '#718096', margin: '0', fontSize: '15px' }}>Track your progress and continue learning</p>
+        </div>
+
+        {/* Stats Cards */}
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '16px', marginBottom: '32px' }}>
+          {[
+            { label: 'Overall Progress', value: `${stats.overallProgress}%`, color: '#0066cc', icon: '📈' },
+            { label: 'Completed Assessments', value: stats.completedAssessments, color: '#059669', icon: '✅' },
+            { label: 'Pending Assessments', value: stats.pendingAssessments, color: '#f59e0b', highlight: stats.pendingAssessments > 0, icon: '⏳' },
+            { label: 'Average Score', value: `${Math.round(stats.averageScore)}%`, color: '#7c3aed', icon: '⭐' }
+          ].map((stat, idx) => (
+            <div key={idx} style={{
+              padding: '20px',
+              backgroundColor: stat.highlight ? '#fffbeb' : '#ffffff',
+              borderRadius: '8px',
+              borderLeft: `4px solid ${stat.color}`,
+              boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+            }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                <div>
+                  <div style={{ fontSize: '12px', fontWeight: '600', color: '#718096', marginBottom: '8px' }}>
+                    {stat.label}
+                  </div>
+                  <div style={{ fontSize: '28px', fontWeight: '700', color: stat.color }}>
+                    {stat.value}
+                  </div>
+                </div>
+                <div style={{ fontSize: '24px' }}>{stat.icon}</div>
+              </div>
+            </div>
+          ))}
         </div>
 
         {/* My Courses */}
-        <div style={{ marginBottom: '28px' }}>
+        <div style={{ marginBottom: '32px' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-            <h2 style={{ fontSize: '18px', fontWeight: '700', margin: '0', color: '#0f172a' }}>My Courses</h2>
+            <h2 style={{ fontSize: '20px', fontWeight: '700', margin: '0', color: '#0f172a' }}>My Courses ({coursesWithProgress.length})</h2>
             <Link to="/my-courses" style={{ color: '#0066cc', textDecoration: 'none', fontSize: '13px', fontWeight: '600' }}>
               View All →
             </Link>
           </div>
           {coursesWithProgress.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-              {coursesWithProgress.slice(0, 3).map((course) => (
-                <div key={course.id} style={{
-                  padding: '12px 0',
-                  borderBottom: '1px solid #e2e8f0'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                    <h4 style={{ margin: '0', fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>{course.name}</h4>
-                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#0066cc' }}>{Math.round(course.progress)}%</span>
-                  </div>
-                  <div style={{ width: '100%', height: '4px', backgroundColor: '#e2e8f0', borderRadius: '2px', overflow: 'hidden' }}>
-                    <div style={{ width: `${course.progress}%`, height: '100%', backgroundColor: '#0066cc' }}></div>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ fontSize: '13px', color: '#718096', padding: '12px 0' }}>
-              No enrolled courses
-            </div>
-          )}
-        </div>
-
-        {/* Recent Assessments */}
-        <div style={{ marginBottom: '28px' }}>
-          <h2 style={{ fontSize: '18px', fontWeight: '700', margin: '0 0 16px 0', color: '#0f172a' }}>Recent Assessments</h2>
-          {recentAttempts.length > 0 ? (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-              {recentAttempts.map((attempt) => {
-                const status = getAssessmentStatus(attempt);
-                const percentage = attempt.maxScore > 0 ? Math.round((attempt.score / attempt.maxScore) * 100) : 0;
-                const statusLabel = status === 'completed' ? `${percentage}%` : status === 'pending' ? 'Pending' : status === 'in-progress' ? 'In Progress' : 'Not Started';
-                
-                return (
-                  <div key={attempt.id} style={{
-                    padding: '10px 0',
-                    borderBottom: '1px solid #e2e8f0',
-                    display: 'flex',
-                    justifyContent: 'space-between',
-                    alignItems: 'center'
+            <div style={{ 
+              overflowX: 'auto',
+              overflowY: 'hidden',
+              paddingBottom: '8px',
+              scrollBehavior: 'smooth'
+            }}>
+              <div style={{ display: 'flex', gap: '16px', minWidth: 'min-content' }}>
+                {coursesWithProgress.map((course) => (
+                  <div key={course.id} style={{
+                    padding: '16px',
+                    backgroundColor: '#ffffff',
+                    borderRadius: '8px',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.1)',
+                    borderTop: '3px solid #0066cc',
+                    cursor: 'pointer',
+                    transition: 'box-shadow 0.2s, transform 0.2s',
+                    minWidth: '300px',
+                    flex: '0 0 auto'
+                  }}
+                  onMouseOver={(e) => {
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(0,0,0,0.15)';
+                    e.currentTarget.style.transform = 'translateY(-2px)';
+                  }}
+                  onMouseOut={(e) => {
+                    e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                    e.currentTarget.style.transform = 'translateY(0)';
                   }}>
-                    <div>
-                      <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{attempt.assessmentTitle}</div>
-                      <div style={{ fontSize: '12px', color: '#718096', marginTop: '2px' }}>{attempt.courseName}</div>
+                    <div style={{ marginBottom: '12px' }}>
+                      <h4 style={{ margin: '0', fontSize: '15px', fontWeight: '700', color: '#0f172a' }}>{course.name}</h4>
                     </div>
-                    <span style={{ fontSize: '12px', fontWeight: '600', color: '#0066cc' }}>
-                      {statusLabel}
-                    </span>
+                    
+                    {/* Course Stats */}
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '12px', paddingTop: '12px', borderTop: '1px solid #e2e8f0' }}>
+                      <div>
+                        <div style={{ fontSize: '12px', color: '#718096', marginBottom: '4px' }}>📋 Completed</div>
+                        <div style={{ fontSize: '16px', fontWeight: '700', color: '#059669' }}>
+                          {course.completedAssessments}/{course.totalAssessments}
+                        </div>
+                      </div>
+                      <div>
+                        <div style={{ fontSize: '12px', color: '#718096', marginBottom: '4px' }}>⭐ Avg Score</div>
+                        <div style={{ fontSize: '16px', fontWeight: '700', color: '#7c3aed' }}>
+                          {Math.round(course.averageScore)}%
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                );
-              })
-            }
+                ))}
+              </div>
             </div>
           ) : (
-            <div style={{ fontSize: '13px', color: '#718096', padding: '10px 0' }}>
-              No assessments yet
-            </div>
-          )}
-        </div>
-
-        {/* Quick Links */}
-        <div>
-          <h2 style={{ fontSize: '18px', fontWeight: '700', margin: '0 0 16px 0', color: '#0f172a' }}>Quick Links</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(160px, 1fr))', gap: '12px' }}>
-            {[
-              { label: 'My Courses', to: '/my-courses' },
-              { label: 'Take Assessment', to: '/my-courses' },
-              { label: 'My Progress', to: '/my-progress' }
-            ].map((action, idx) => (
-              <Link key={idx} to={action.to} style={{ textDecoration: 'none' }}>
+            <div style={{ 
+              padding: '32px', 
+              backgroundColor: '#f3f4f6', 
+              borderRadius: '8px', 
+              textAlign: 'center' 
+            }}>
+              <div style={{ fontSize: '14px', color: '#718096', marginBottom: '12px' }}>Not enrolled in any courses yet</div>
+              <Link to="/my-courses" style={{ textDecoration: 'none' }}>
                 <button style={{
-                  width: '100%',
-                  padding: '10px 12px',
+                  padding: '8px 16px',
                   backgroundColor: '#0066cc',
                   color: 'white',
                   border: 'none',
@@ -177,11 +201,92 @@ const StudentDashboard: React.FC = () => {
                   fontSize: '13px',
                   fontWeight: '600'
                 }}>
-                  {action.label}
+                  Browse Courses
                 </button>
               </Link>
-            ))}
-          </div>
+            </div>
+          )}
+        </div>
+        {/* Recent Assessments */}
+        <div>
+          <h2 style={{ fontSize: '20px', fontWeight: '700', margin: '0 0 16px 0', color: '#0f172a' }}>Recent Assessments</h2>
+            {recentAttempts.length > 0 ? (
+              <div style={{ backgroundColor: '#ffffff', borderRadius: '8px', overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {recentAttempts.map((attempt, idx) => {
+                    const status = getAssessmentStatus(attempt);
+                    const percentage = attempt.maxScore > 0 ? Math.round((attempt.score / attempt.maxScore) * 100) : 0;
+                    
+                    let statusColor = '#718096';
+                    let statusBg = '#f3f4f6';
+                    let statusLabel = 'Not Started';
+                    
+                    if (status === 'completed') {
+                      statusColor = '#065f46';
+                      statusBg = '#dcfce7';
+                      statusLabel = `${percentage}%`;
+                    } else if (status === 'pending') {
+                      statusColor = '#92400e';
+                      statusBg = '#fef3c7';
+                      statusLabel = 'Pending Review';
+                    } else if (status === 'in-progress') {
+                      statusColor = '#1e40af';
+                      statusBg = '#dbeafe';
+                      statusLabel = 'In Progress';
+                    }
+                    
+                    return (
+                      <div key={attempt.id} style={{
+                        padding: '16px',
+                        borderBottom: idx < recentAttempts.length - 1 ? '1px solid #e2e8f0' : 'none',
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center'
+                      }}>
+                        <div style={{ flex: 1 }}>
+                          <div style={{ fontSize: '14px', fontWeight: '600', color: '#0f172a', marginBottom: '4px' }}>
+                            {attempt.assessmentTitle}
+                          </div>
+                          <div style={{ fontSize: '13px', color: '#718096' }}>
+                            {attempt.courseName} • {new Date(attempt.createdAt).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                          {status === 'completed' && (
+                            <div style={{ textAlign: 'right' }}>
+                              <div style={{ fontSize: '12px', color: '#718096', marginBottom: '2px' }}>Your Score</div>
+                              <div style={{ fontSize: '18px', fontWeight: '700', color: statusColor }}>
+                                {attempt.score}/{attempt.maxScore}
+                              </div>
+                            </div>
+                          )}
+                          <span style={{
+                            fontSize: '12px',
+                            fontWeight: '600',
+                            color: statusColor,
+                            backgroundColor: statusBg,
+                            padding: '6px 12px',
+                            borderRadius: '4px',
+                            whiteSpace: 'nowrap'
+                          }}>
+                            {statusLabel}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (
+              <div style={{ 
+                padding: '24px', 
+                backgroundColor: '#f3f4f6', 
+                borderRadius: '8px', 
+                textAlign: 'center' 
+              }}>
+                <div style={{ fontSize: '14px', color: '#718096' }}>No assessments yet</div>
+              </div>
+            )}
         </div>
       </div>
     </div>

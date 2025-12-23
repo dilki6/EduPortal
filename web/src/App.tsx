@@ -15,7 +15,6 @@ import CourseManagement from "./pages/CourseManagement";
 import AssessmentManagement from "./pages/AssessmentManagement";
 import ReviewAnswers from "./pages/ReviewAnswers";
 import MyCourses from "./pages/MyCourses";
-import MyProgress from "./pages/MyProgress";
 import AttemptAssessment from "./pages/AttemptAssessment";
 import StudentReviewAttempt from "./pages/StudentReviewAttempt";
 import NotFound from "./pages/NotFound";
@@ -69,12 +68,6 @@ const AppContent = () => {
         <Route path="/my-courses" element={
           <ProtectedRoute allowedRoles={['student']}>
             <MyCourses />
-          </ProtectedRoute>
-        } />
-
-        <Route path="/my-progress" element={
-          <ProtectedRoute allowedRoles={['student']}>
-            <MyProgress />
           </ProtectedRoute>
         } />
 

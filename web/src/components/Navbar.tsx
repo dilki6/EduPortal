@@ -31,7 +31,6 @@ const Navbar: React.FC = () => {
   const studentLinks = [
     { path: '/student-dashboard', label: 'Dashboard' },
     { path: '/my-courses', label: 'My Courses' },
-    { path: '/my-progress', label: 'My Progress' },
   ];
 
   const links = user.role === 'teacher' ? teacherLinks : studentLinks;
