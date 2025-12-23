@@ -87,7 +87,7 @@ builder.Services.AddAuthentication(options =>
 
 builder.Services.AddAuthorization();
 
-// Register HttpClient for Ollama
+// Register HttpClient for AI services
 builder.Services.AddHttpClient();
 
 // Register Services
@@ -95,7 +95,19 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<ICourseService, CourseService>();
 builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IProgressService, ProgressService>();
-builder.Services.AddScoped<IAiEvaluationService, AiEvaluationService>();
+
+// Register AI Evaluation Service - Choose based on configuration
+var useOpenRouter = builder.Configuration.GetValue<bool>("OpenRouter:Enabled");
+if (useOpenRouter && !string.IsNullOrWhiteSpace(builder.Configuration["OpenRouter:ApiKey"]))
+{
+    builder.Services.AddScoped<IAiEvaluationService, OpenRouterAiService>();
+    Console.WriteLine("✓ Using OpenRouter AI Service (Qwen model)");
+}
+else
+{
+    builder.Services.AddScoped<IAiEvaluationService, AiEvaluationService>();
+    Console.WriteLine("✓ Using Ollama AI Service (local)");
+}
 
 // Configure CORS
 var corsOrigins = builder.Configuration.GetSection("CorsOrigins").Get<string[]>() 
