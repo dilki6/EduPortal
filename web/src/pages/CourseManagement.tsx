@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useToast } from '@/hooks/use-toast';
+import { useLocation } from 'react-router-dom';
 import { courseApi, Course as ApiCourse, EnrollmentWithDetails, StudentDto } from '@/lib/api';
 
 interface Course {
@@ -14,6 +15,7 @@ interface Course {
 
 const CourseManagement: React.FC = () => {
   const { toast } = useToast();
+  const location = useLocation();
   const [courses, setCourses] = useState<Course[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
@@ -23,7 +25,7 @@ const CourseManagement: React.FC = () => {
   const [enrollingCourse, setEnrollingCourse] = useState<Course | null>(null);
   const [selectedStudent, setSelectedStudent] = useState('');
   const [isSaving, setIsSaving] = useState(false);
-  const [deletingCourseId, setDeletetingCourseId] = useState<string | null>(null);
+  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
   const [allStudents, setAllStudents] = useState<StudentDto[]>([]);
   const [isLoadingStudents, setIsLoadingStudents] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
@@ -38,6 +40,21 @@ const CourseManagement: React.FC = () => {
   useEffect(() => {
     fetchCourses();
   }, []);
+
+  // Handle edit course from location state
+  useEffect(() => {
+    if (location.state && (location.state as any).editCourseId && courses.length > 0) {
+      const courseToEdit = courses.find(c => c.id === (location.state as any).editCourseId);
+      if (courseToEdit) {
+        setEditingCourse(courseToEdit);
+        setCourseName(courseToEdit.name);
+        setCourseDescription(courseToEdit.description);
+        setIsEditDialogOpen(true);
+        // Clear the state after using it
+        window.history.replaceState({}, document.title);
+      }
+    }
+  }, [courses, location]);
 
   const fetchCourses = async () => {
     try {
@@ -376,169 +393,210 @@ const CourseManagement: React.FC = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#fff', padding: '20px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', padding: '24px 20px' }}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>Course Management</h1>
-        <p style={{ color: '#666', marginBottom: '20px', fontSize: '12px' }}>Create and manage your courses</p>
+        {/* Header */}
+        <div style={{ marginBottom: '24px' }}>
+          <h1 style={{ fontSize: '26px', fontWeight: '700', margin: '0 0 4px 0', color: '#0f172a' }}>Courses</h1>
+          <p style={{ color: '#718096', margin: '0', fontSize: '13px' }}>Create and manage your courses</p>
+        </div>
 
+        {/* Create Button */}
         <div style={{ marginBottom: '20px' }}>
           <button
             onClick={() => setIsCreateDialogOpen(true)}
-            style={{ padding: '8px 12px', backgroundColor: '#4CAF50', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: '#0066cc',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}
           >
-            + Create Course
+            + New Course
           </button>
         </div>
 
         {/* Courses List */}
         {courses.length === 0 ? (
-          <div style={{ border: '1px solid #ddd', padding: '40px', textAlign: 'center', backgroundColor: '#f5f5f5' }}>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>No Courses Yet</div>
-            <p style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>Get started by creating your first course</p>
-            <button
-              onClick={() => setIsCreateDialogOpen(true)}
-              style={{ padding: '8px 12px', backgroundColor: '#4CAF50', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
-            >
-              Create Your First Course
-            </button>
+          <div style={{ padding: '20px 0', color: '#718096', fontSize: '13px', textAlign: 'center' }}>
+            No courses yet. Create one to get started.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {courses.map((course) => (
-              <div key={course.id} style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
+              <div key={course.id} style={{ padding: '12px 0', borderBottom: '1px solid #e2e8f0' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '6px' }}>
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{course.name}</h3>
-                    <p style={{ margin: '5px 0 0 0', fontSize: '11px', color: '#666' }}>{course.description}</p>
+                    <h3 style={{ margin: '0', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{course.name}</h3>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#718096' }}>{course.description}</p>
                   </div>
-                  <div style={{ display: 'flex', gap: '5px' }}>
+                  <div style={{ display: 'flex', gap: '8px' }}>
                     <button
                       onClick={() => openEditDialog(course)}
-                      style={{ padding: '4px 8px', backgroundColor: '#2196F3', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#0066cc',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: '600'
+                      }}
                     >
                       Edit
                     </button>
                     <button
                       onClick={() => handleDeleteCourse(course.id, course.name)}
                       disabled={deletingCourseId === course.id}
-                      style={{ padding: '4px 8px', backgroundColor: '#FF6B6B', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#e53e3e',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        opacity: deletingCourseId === course.id ? 0.6 : 1
+                      }}
                     >
                       Delete
                     </button>
                   </div>
                 </div>
-
-                <div style={{ fontSize: '11px', color: '#666', marginBottom: '10px' }}>
-                  {course.enrolledStudents.length} students enrolled
+                <div style={{ fontSize: '11px', color: '#718096' }}>
+                  {course.enrolledStudents.length} students
                 </div>
-
-                {course.enrolledStudents.length > 0 && (
-                  <div style={{ marginBottom: '10px', fontSize: '11px' }}>
-                    <div style={{ fontWeight: 'bold', marginBottom: '5px' }}>Students:</div>
-                    {course.enrolledStudents.slice(0, 2).map((enrollment) => (
-                      <div key={enrollment.id} style={{ fontSize: '10px', color: '#666', marginBottom: '3px' }}>
-                        • {enrollment.studentName}
-                      </div>
-                    ))}
-                    {course.enrolledStudents.length > 2 && (
-                      <div style={{ fontSize: '10px', color: '#999' }}>
-                        +{course.enrolledStudents.length - 2} more
-                      </div>
-                    )}
-                  </div>
-                )}
-
                 <button
                   onClick={() => openEnrollDialog(course)}
-                  style={{ width: '100%', padding: '6px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '11px' }}
+                  style={{
+                    width: '100%',
+                    padding: '6px 10px',
+                    backgroundColor: '#0066cc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: 'pointer',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    marginTop: '6px'
+                  }}
                 >
-                  Manage Enrollments
+                  Manage
                 </button>
               </div>
             ))}
           </div>
         )}
 
-        {/* Create Course Dialog */}
-        {isCreateDialogOpen && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', border: '1px solid #ccc', padding: '20px', maxWidth: '400px', width: '90%' }}>
-              <h2 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: 'bold' }}>Create New Course</h2>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Course Name</label>
-                <input
-                  type="text"
-                  value={courseName}
-                  onChange={(e) => setCourseName(e.target.value)}
-                  placeholder="Enter course name"
-                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Course Description</label>
-                <textarea
-                  value={courseDescription}
-                  onChange={(e) => setCourseDescription(e.target.value)}
-                  placeholder="Enter course description"
-                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box', minHeight: '80px' }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => setIsCreateDialogOpen(false)}
-                  style={{ padding: '6px 12px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '12px' }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleCreateCourse}
-                  disabled={isSaving}
-                  style={{ padding: '6px 12px', backgroundColor: '#4CAF50', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
-                >
-                  Create
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Create/Edit Dialog */}
+        {(isCreateDialogOpen || isEditDialogOpen) && (
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '24px',
+              borderRadius: '8px',
+              maxWidth: '500px',
+              width: '90%',
+              border: '1px solid #e2e8f0'
+            }}>
+              <h2 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
+                {isEditDialogOpen ? 'Edit Course' : 'Create New Course'}
+              </h2>
 
-        {/* Edit Course Dialog */}
-        {isEditDialogOpen && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', border: '1px solid #ccc', padding: '20px', maxWidth: '400px', width: '90%' }}>
-              <h2 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: 'bold' }}>Edit Course</h2>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Course Name</label>
-                <input
-                  type="text"
-                  value={courseName}
-                  onChange={(e) => setCourseName(e.target.value)}
-                  placeholder="Enter course name"
-                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box' }}
-                />
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Name</label>
+                  <input
+                    type="text"
+                    placeholder="Course name"
+                    value={courseName}
+                    onChange={(e) => setCourseName(e.target.value)}
+                    style={{
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontFamily: 'inherit'
+                    }}
+                  />
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  <label style={{ fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Description</label>
+                  <textarea
+                    placeholder="Course description"
+                    value={courseDescription}
+                    onChange={(e) => setCourseDescription(e.target.value)}
+                    style={{
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontFamily: 'inherit',
+                      resize: 'vertical',
+                      minHeight: '80px'
+                    }}
+                  />
+                </div>
               </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Course Description</label>
-                <textarea
-                  value={courseDescription}
-                  onChange={(e) => setCourseDescription(e.target.value)}
-                  placeholder="Enter course description"
-                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box', minHeight: '80px' }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
-                  onClick={() => setIsEditDialogOpen(false)}
-                  style={{ padding: '6px 12px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '12px' }}
+                  onClick={isEditDialogOpen ? handleEditCourse : handleCreateCourse}
+                  disabled={isSaving}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    backgroundColor: '#0066cc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    opacity: isSaving ? 0.6 : 1
+                  }}
                 >
-                  Cancel
+                  {isSaving ? 'Saving...' : isEditDialogOpen ? 'Update' : 'Create'}
                 </button>
                 <button
-                  onClick={handleEditCourse}
-                  disabled={isSaving}
-                  style={{ padding: '6px 12px', backgroundColor: '#2196F3', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+                  onClick={() => {
+                    setIsCreateDialogOpen(false);
+                    setIsEditDialogOpen(false);
+                    setEditingCourse(null);
+                    setCourseName('');
+                    setCourseDescription('');
+                  }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    backgroundColor: '#f3f4f6',
+                    color: '#0f172a',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}
                 >
-                  Update
+                  Cancel
                 </button>
               </div>
             </div>
@@ -547,19 +605,51 @@ const CourseManagement: React.FC = () => {
 
         {/* Enroll Student Dialog */}
         {isEnrollDialogOpen && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', border: '1px solid #ccc', padding: '20px', maxWidth: '500px', width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
-              <h2 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: 'bold' }}>Manage Enrollments</h2>
-              <p style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>{enrollingCourse?.name}</p>
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '24px',
+              borderRadius: '8px',
+              maxWidth: '500px',
+              width: '90%',
+              border: '1px solid #e2e8f0',
+              maxHeight: '80vh',
+              overflowY: 'auto'
+            }}>
+              <h2 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
+                Manage Enrollments
+              </h2>
+              <p style={{ margin: '0 0 20px 0', fontSize: '12px', color: '#718096' }}>
+                {enrollingCourse?.name}
+              </p>
 
-              <div style={{ marginBottom: '20px', paddingBottom: '15px', borderBottom: '1px solid #ddd' }}>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: 'bold' }}>Enroll New Student</h3>
-                <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ marginBottom: '20px', paddingBottom: '16px', borderBottom: '1px solid #e2e8f0' }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>Enroll New Student</h3>
+                <div style={{ display: 'flex', gap: '8px' }}>
                   <select
                     value={selectedStudent}
                     onChange={(e) => setSelectedStudent(e.target.value)}
                     disabled={isLoadingStudents}
-                    style={{ flex: 1, padding: '6px', border: '1px solid #999', fontSize: '12px', cursor: 'pointer' }}
+                    style={{
+                      flex: 1,
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      cursor: 'pointer',
+                      fontFamily: 'inherit'
+                    }}
                   >
                     <option value="">Select a student...</option>
                     {getAvailableStudents().map((student) => (
@@ -571,44 +661,90 @@ const CourseManagement: React.FC = () => {
                   <button
                     onClick={handleEnrollStudent}
                     disabled={!selectedStudent || isEnrolling}
-                    style={{ padding: '6px 12px', backgroundColor: '#4CAF50', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+                    style={{
+                      padding: '8px 14px',
+                      backgroundColor: '#0066cc',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '4px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      opacity: !selectedStudent || isEnrolling ? 0.6 : 1
+                    }}
                   >
                     Enroll
                   </button>
                 </div>
               </div>
 
-              <div>
-                <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: 'bold' }}>Enrolled Students ({enrollingCourse?.enrolledStudents.length || 0})</h3>
+              <div style={{ marginBottom: '20px' }}>
+                <h3 style={{ margin: '0 0 10px 0', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
+                  Enrolled Students ({enrollingCourse?.enrolledStudents.length || 0})
+                </h3>
                 {enrollingCourse && enrollingCourse.enrolledStudents.length > 0 ? (
-                  <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '300px', overflowY: 'auto' }}>
                     {enrollingCourse.enrolledStudents.map((enrollment) => (
-                      <div key={enrollment.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '8px', border: '1px solid #eee', marginBottom: '5px', backgroundColor: '#f9f9f9' }}>
-                        <div style={{ flex: 1, fontSize: '11px' }}>
-                          <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>{enrollment.studentName}</div>
-                          <div style={{ color: '#666', fontSize: '10px' }}>{enrollment.studentEmail}</div>
+                      <div
+                        key={enrollment.id}
+                        style={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          padding: '8px',
+                          borderBottom: '1px solid #e2e8f0'
+                        }}
+                      >
+                        <div style={{ flex: 1, fontSize: '12px' }}>
+                          <div style={{ fontWeight: '600', color: '#0f172a', marginBottom: '2px' }}>{enrollment.studentName}</div>
+                          <div style={{ color: '#718096', fontSize: '11px' }}>{enrollment.studentEmail}</div>
                         </div>
                         <button
                           onClick={() => handleUnenrollStudent(enrollment.id, enrollment.studentName)}
                           disabled={unenrollingId === enrollment.id}
-                          style={{ padding: '4px 8px', backgroundColor: '#FF6B6B', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}
+                          style={{
+                            padding: '4px 10px',
+                            backgroundColor: '#e53e3e',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: 'pointer',
+                            fontSize: '11px',
+                            fontWeight: '600',
+                            opacity: unenrollingId === enrollment.id ? 0.6 : 1
+                          }}
                         >
-                          Unenroll
+                          Remove
                         </button>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div style={{ padding: '20px', textAlign: 'center', backgroundColor: '#f5f5f5', border: '1px solid #ddd' }}>
-                    <p style={{ fontSize: '12px', color: '#666', margin: 0 }}>No students enrolled yet</p>
+                  <div style={{
+                    padding: '12px',
+                    color: '#718096',
+                    fontSize: '12px',
+                    textAlign: 'center'
+                  }}>
+                    No students enrolled yet
                   </div>
                 )}
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end', marginTop: '15px', paddingTop: '15px', borderTop: '1px solid #ddd' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   onClick={() => setIsEnrollDialogOpen(false)}
-                  style={{ padding: '6px 12px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '12px' }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    backgroundColor: '#f3f4f6',
+                    color: '#0f172a',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}
                 >
                   Close
                 </button>

@@ -594,78 +594,122 @@ const AssessmentManagement: React.FC = () => {
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#fff', padding: '20px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', padding: '24px 20px' }}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>Assessment Management</h1>
-        <p style={{ color: '#666', marginBottom: '20px', fontSize: '12px' }}>Create and manage assessments for your courses</p>
+        {/* Header */}
+        <div style={{ marginBottom: '24px' }}>
+          <h1 style={{ fontSize: '26px', fontWeight: '700', margin: '0 0 4px 0', color: '#0f172a' }}>Assessments</h1>
+          <p style={{ color: '#718096', margin: '0', fontSize: '13px' }}>Create and manage assessments</p>
+        </div>
 
+        {/* Create Button */}
         <div style={{ marginBottom: '20px' }}>
           <button
             onClick={() => setIsCreateDialogOpen(true)}
-            style={{ padding: '8px 12px', backgroundColor: '#FF9800', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+            style={{
+              padding: '8px 14px',
+              backgroundColor: '#0066cc',
+              color: 'white',
+              border: 'none',
+              borderRadius: '5px',
+              cursor: 'pointer',
+              fontSize: '12px',
+              fontWeight: '600'
+            }}
           >
-            + Create Assessment
+            + New Assessment
           </button>
         </div>
 
         {/* Assessments List */}
         {assessments.length === 0 ? (
-          <div style={{ border: '1px solid #ddd', padding: '40px', textAlign: 'center', backgroundColor: '#f5f5f5' }}>
-            <div style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>No Assessments Yet</div>
-            <p style={{ fontSize: '12px', color: '#666', marginBottom: '15px' }}>Get started by creating your first assessment</p>
-            <button
-              onClick={() => setIsCreateDialogOpen(true)}
-              style={{ padding: '8px 12px', backgroundColor: '#FF9800', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
-            >
-              Create Your First Assessment
-            </button>
+          <div style={{ padding: '20px 0', color: '#718096', fontSize: '13px', textAlign: 'center' }}>
+            No assessments yet. Create one to get started.
           </div>
         ) : (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '15px' }}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
             {assessments.map((assessment) => (
-              <div key={assessment.id} style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '10px' }}>
+              <div key={assessment.id} style={{ padding: '12px 0', borderBottom: '1px solid #e2e8f0', cursor: 'pointer' }} onClick={() => setCurrentAssessment(assessment)}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '6px' }}>
                   <div style={{ flex: 1 }}>
-                    <h3 style={{ margin: '0', fontSize: '14px', fontWeight: 'bold' }}>{assessment.title}</h3>
-                    <p style={{ margin: '5px 0 0 0', fontSize: '11px', color: '#666' }}>{assessment.description}</p>
+                    <h3 style={{ margin: '0', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{assessment.title}</h3>
+                    <p style={{ margin: '2px 0 0 0', fontSize: '12px', color: '#718096' }}>{assessment.description}</p>
                   </div>
-                  <div style={{ display: 'flex', gap: '5px' }}>
+                  <div style={{ display: 'flex', gap: '6px' }} onClick={(e) => e.stopPropagation()}>
                     <button
                       onClick={() => handleTogglePublish(assessment.id, assessment.isPublished)}
-                      style={{ padding: '4px 8px', backgroundColor: assessment.isPublished ? '#4CAF50' : '#ddd', color: assessment.isPublished ? 'white' : '#666', border: 'none', cursor: 'pointer', fontSize: '10px' }}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: assessment.isPublished ? '#10b981' : '#f3f4f6',
+                        color: assessment.isPublished ? 'white' : '#718096',
+                        border: '1px solid' + (assessment.isPublished ? ' #10b981' : ' #e2e8f0'),
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: '600'
+                      }}
                     >
                       {assessment.isPublished ? 'Published' : 'Draft'}
                     </button>
+                    {assessment.isPublished && (assessment.attemptCount || 0) > 0 && (
+                      <button
+                        onClick={() => handleToggleResultsRelease(assessment.id, assessment.resultsReleased || false)}
+                        disabled={releasingResultsId === assessment.id}
+                        style={{
+                          padding: '6px 10px',
+                          backgroundColor: assessment.resultsReleased ? '#ef4444' : '#fbbf24',
+                          color: 'white',
+                          border: 'none',
+                          borderRadius: '5px',
+                          cursor: 'pointer',
+                          fontSize: '11px',
+                          fontWeight: '600',
+                          opacity: releasingResultsId === assessment.id ? 0.6 : 1
+                        }}
+                      >
+                        {releasingResultsId === assessment.id ? 'Updating...' : (assessment.resultsReleased ? 'Unpublish Results' : 'Publish Results')}
+                      </button>
+                    )}
                     <button
                       onClick={() => handleDeleteAssessment(assessment.id, assessment.title)}
                       disabled={deletingAssessmentId === assessment.id}
-                      style={{ padding: '4px 8px', backgroundColor: '#FF6B6B', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}
+                      style={{
+                        padding: '6px 10px',
+                        backgroundColor: '#e53e3e',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '5px',
+                        cursor: 'pointer',
+                        fontSize: '11px',
+                        fontWeight: '600',
+                        opacity: deletingAssessmentId === assessment.id ? 0.6 : 1
+                      }}
                     >
                       Delete
                     </button>
                   </div>
                 </div>
-
-                <div style={{ fontSize: '11px', color: '#666', marginBottom: '10px' }}>
-                  <div>Course: {assessment.courseName}</div>
-                  <div>Duration: {assessment.timeLimit} min | Questions: {assessment.questions.length} | Points: {getTotalPoints(assessment)}</div>
+                <div style={{ fontSize: '11px', color: '#718096', marginBottom: '8px' }}>
+                  {assessment.courseName} • {assessment.questions.length} questions • {assessment.timeLimit}m
                 </div>
-
-                {assessment.questions.length > 0 && (
-                  <div style={{ marginBottom: '10px', fontSize: '11px', maxHeight: '150px', overflowY: 'auto', backgroundColor: '#f0f0f0', padding: '8px', border: '1px solid #eee' }}>
-                    {assessment.questions.map((question, index) => (
-                      <div key={question.id} style={{ marginBottom: '5px', fontSize: '10px' }}>
-                        <div style={{ fontWeight: 'bold', marginBottom: '2px' }}>Q{index + 1}. {question.question}</div>
-                        <div style={{ color: '#999', marginLeft: '10px' }}>Type: {question.type === 'mcq' ? 'Multiple Choice' : 'Text'} | Points: {question.points}</div>
-                      </div>
-                    ))}
-                  </div>
-                )}
-
                 <button
-                  onClick={() => openQuestionDialog(assessment)}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openQuestionDialog(assessment);
+                  }}
                   disabled={(assessment.attemptCount || 0) > 0}
-                  style={{ width: '100%', padding: '6px', backgroundColor: '#2196F3', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}
+                  style={{
+                    padding: '6px 10px',
+                    backgroundColor: '#0066cc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '5px',
+                    cursor: (assessment.attemptCount || 0) > 0 ? 'not-allowed' : 'pointer',
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    width: '100%',
+                    opacity: (assessment.attemptCount || 0) > 0 ? 0.5 : 1
+                  }}
                 >
                   + Add Question
                 </button>
@@ -676,64 +720,147 @@ const AssessmentManagement: React.FC = () => {
 
         {/* Create Assessment Dialog */}
         {isCreateDialogOpen && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', border: '1px solid #ccc', padding: '20px', maxWidth: '400px', width: '90%' }}>
-              <h2 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: 'bold' }}>Create New Assessment</h2>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Title</label>
-                <input
-                  type="text"
-                  value={assessmentTitle}
-                  onChange={(e) => setAssessmentTitle(e.target.value)}
-                  placeholder="Enter title"
-                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box' }}
-                />
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '24px',
+              borderRadius: '8px',
+              maxWidth: '500px',
+              width: '90%',
+              border: '1px solid #e2e8f0'
+            }}>
+              <h2 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
+                Create New Assessment
+              </h2>
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Title</label>
+                  <input
+                    type="text"
+                    value={assessmentTitle}
+                    onChange={(e) => setAssessmentTitle(e.target.value)}
+                    placeholder="Enter title"
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontFamily: 'inherit',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Description</label>
+                  <textarea
+                    value={assessmentDescription}
+                    onChange={(e) => setAssessmentDescription(e.target.value)}
+                    placeholder="Enter description"
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontFamily: 'inherit',
+                      boxSizing: 'border-box',
+                      minHeight: '60px',
+                      resize: 'vertical'
+                    }}
+                  />
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Course</label>
+                  <select
+                    value={selectedCourse}
+                    onChange={(e) => setSelectedCourse(e.target.value)}
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontFamily: 'inherit',
+                      cursor: 'pointer',
+                      boxSizing: 'border-box'
+                    }}
+                  >
+                    <option value="">Select a course</option>
+                    {courses.map((course) => (
+                      <option key={course.id} value={course.id}>{course.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Time Limit (minutes)</label>
+                  <input
+                    type="number"
+                    value={timeLimit}
+                    onChange={(e) => setTimeLimit(e.target.value)}
+                    placeholder="e.g. 60"
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontFamily: 'inherit',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
               </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Description</label>
-                <textarea
-                  value={assessmentDescription}
-                  onChange={(e) => setAssessmentDescription(e.target.value)}
-                  placeholder="Enter description"
-                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box', minHeight: '60px' }}
-                />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Course</label>
-                <select
-                  value={selectedCourse}
-                  onChange={(e) => setSelectedCourse(e.target.value)}
-                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px' }}
-                >
-                  <option value="">Select a course</option>
-                  {courses.map((course) => (
-                    <option key={course.id} value={course.id}>{course.name}</option>
-                  ))}
-                </select>
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Time Limit (minutes)</label>
-                <input
-                  type="number"
-                  value={timeLimit}
-                  onChange={(e) => setTimeLimit(e.target.value)}
-                  placeholder="e.g. 60"
-                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box' }}
-                />
-              </div>
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   onClick={() => setIsCreateDialogOpen(false)}
-                  style={{ padding: '6px 12px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '12px' }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    backgroundColor: '#f3f4f6',
+                    color: '#0f172a',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCreateAssessment}
                   disabled={isSaving}
-                  style={{ padding: '6px 12px', backgroundColor: '#FF9800', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    backgroundColor: '#0066cc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    opacity: isSaving ? 0.6 : 1
+                  }}
                 >
-                  Create
+                  {isSaving ? 'Creating...' : 'Create'}
                 </button>
               </div>
             </div>
@@ -742,116 +869,210 @@ const AssessmentManagement: React.FC = () => {
 
         {/* Add Question Dialog */}
         {isQuestionDialogOpen && (
-          <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000 }}>
-            <div style={{ backgroundColor: 'white', border: '1px solid #ccc', padding: '20px', maxWidth: '450px', width: '90%', maxHeight: '80vh', overflowY: 'auto' }}>
-              <h2 style={{ margin: '0 0 15px 0', fontSize: '16px', fontWeight: 'bold' }}>{editingQuestion ? 'Update' : 'Add'} Question</h2>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Question</label>
-                <textarea
-                  value={questionText}
-                  onChange={(e) => setQuestionText(e.target.value)}
-                  placeholder="Enter question"
-                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box', minHeight: '60px' }}
-                />
-              </div>
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Type</label>
-                <div style={{ display: 'flex', gap: '15px' }}>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      value="mcq"
-                      checked={questionType === 'mcq'}
-                      onChange={(e) => setQuestionType(e.target.value as 'mcq' | 'text')}
-                    />
-                    <span style={{ fontSize: '12px' }}>Multiple Choice</span>
-                  </label>
-                  <label style={{ display: 'flex', alignItems: 'center', gap: '5px', cursor: 'pointer' }}>
-                    <input
-                      type="radio"
-                      value="text"
-                      checked={questionType === 'text'}
-                      onChange={(e) => setQuestionType(e.target.value as 'mcq' | 'text')}
-                    />
-                    <span style={{ fontSize: '12px' }}>Text Answer</span>
-                  </label>
-                </div>
-              </div>
+          <div style={{
+            position: 'fixed',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.5)',
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            zIndex: 1000
+          }}>
+            <div style={{
+              backgroundColor: '#ffffff',
+              padding: '24px',
+              borderRadius: '8px',
+              maxWidth: '500px',
+              width: '90%',
+              border: '1px solid #e2e8f0',
+              maxHeight: '80vh',
+              overflowY: 'auto'
+            }}>
+              <h2 style={{ margin: '0 0 16px 0', fontSize: '18px', fontWeight: '700', color: '#0f172a' }}>
+                {editingQuestion ? 'Update Question' : 'Add Question'}
+              </h2>
 
-              {questionType === 'mcq' && (
-                <>
-                  <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Options</label>
-                    {options.map((option, index) => (
-                      <input
-                        key={index}
-                        type="text"
-                        value={option}
-                        onChange={(e) => {
-                          const newOptions = [...options];
-                          newOptions[index] = e.target.value;
-                          setOptions(newOptions);
-                        }}
-                        placeholder={`Option ${index + 1}`}
-                        style={{ width: '100%', padding: '4px', border: '1px solid #999', fontSize: '11px', marginBottom: '5px', boxSizing: 'border-box' }}
-                      />
-                    ))}
-                  </div>
-                  <div style={{ marginBottom: '15px' }}>
-                    <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Correct Answer</label>
-                    <select
-                      value={correctAnswer}
-                      onChange={(e) => setCorrectAnswer(e.target.value)}
-                      style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px' }}
-                    >
-                      <option value="">Select correct answer</option>
-                      {options.filter(opt => opt.trim()).map((option, index) => (
-                        <option key={index} value={option}>{option}</option>
-                      ))}
-                    </select>
-                  </div>
-                </>
-              )}
-
-              {questionType === 'text' && (
-                <div style={{ marginBottom: '15px' }}>
-                  <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Model Answer</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', marginBottom: '20px' }}>
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Question</label>
                   <textarea
-                    value={modelAnswer}
-                    onChange={(e) => setModelAnswer(e.target.value)}
-                    placeholder="Enter model answer"
-                    style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box', minHeight: '60px' }}
+                    value={questionText}
+                    onChange={(e) => setQuestionText(e.target.value)}
+                    placeholder="Enter question"
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontFamily: 'inherit',
+                      boxSizing: 'border-box',
+                      minHeight: '60px',
+                      resize: 'vertical'
+                    }}
                   />
                 </div>
-              )}
 
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '12px', fontWeight: 'bold', marginBottom: '5px' }}>Points</label>
-                <input
-                  type="number"
-                  value={points}
-                  onChange={(e) => setPoints(e.target.value)}
-                  placeholder="e.g. 5"
-                  style={{ width: '100%', padding: '6px', border: '1px solid #999', fontSize: '12px', boxSizing: 'border-box' }}
-                />
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: '#0f172a' }}>Type</label>
+                  <div style={{ display: 'flex', gap: '16px' }}>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        value="mcq"
+                        checked={questionType === 'mcq'}
+                        onChange={(e) => setQuestionType(e.target.value as 'mcq' | 'text')}
+                      />
+                      <span style={{ fontSize: '13px', color: '#0f172a' }}>Multiple Choice</span>
+                    </label>
+                    <label style={{ display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer' }}>
+                      <input
+                        type="radio"
+                        value="text"
+                        checked={questionType === 'text'}
+                        onChange={(e) => setQuestionType(e.target.value as 'mcq' | 'text')}
+                      />
+                      <span style={{ fontSize: '13px', color: '#0f172a' }}>Text Answer</span>
+                    </label>
+                  </div>
+                </div>
+
+                {questionType === 'mcq' && (
+                  <>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '8px', color: '#0f172a' }}>Options</label>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        {options.map((option, index) => (
+                          <input
+                            key={index}
+                            type="text"
+                            value={option}
+                            onChange={(e) => {
+                              const newOptions = [...options];
+                              newOptions[index] = e.target.value;
+                              setOptions(newOptions);
+                            }}
+                            placeholder={`Option ${index + 1}`}
+                            style={{
+                              padding: '8px',
+                              border: '1px solid #e2e8f0',
+                              borderRadius: '4px',
+                              fontSize: '13px',
+                              fontFamily: 'inherit',
+                              boxSizing: 'border-box'
+                            }}
+                          />
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Correct Answer</label>
+                      <select
+                        value={correctAnswer}
+                        onChange={(e) => setCorrectAnswer(e.target.value)}
+                        style={{
+                          width: '100%',
+                          padding: '8px',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '4px',
+                          fontSize: '13px',
+                          fontFamily: 'inherit',
+                          cursor: 'pointer',
+                          boxSizing: 'border-box'
+                        }}
+                      >
+                        <option value="">Select correct answer</option>
+                        {options.filter(opt => opt.trim()).map((option, index) => (
+                          <option key={index} value={option}>{option}</option>
+                        ))}
+                      </select>
+                    </div>
+                  </>
+                )}
+
+                {questionType === 'text' && (
+                  <div>
+                    <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Model Answer</label>
+                    <textarea
+                      value={modelAnswer}
+                      onChange={(e) => setModelAnswer(e.target.value)}
+                      placeholder="Enter model answer"
+                      style={{
+                        width: '100%',
+                        padding: '8px',
+                        border: '1px solid #e2e8f0',
+                        borderRadius: '4px',
+                        fontSize: '13px',
+                        fontFamily: 'inherit',
+                        boxSizing: 'border-box',
+                        minHeight: '60px',
+                        resize: 'vertical'
+                      }}
+                    />
+                  </div>
+                )}
+
+                <div>
+                  <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '4px', color: '#0f172a' }}>Points</label>
+                  <input
+                    type="number"
+                    value={points}
+                    onChange={(e) => setPoints(e.target.value)}
+                    placeholder="e.g. 5"
+                    style={{
+                      width: '100%',
+                      padding: '8px',
+                      border: '1px solid #e2e8f0',
+                      borderRadius: '4px',
+                      fontSize: '13px',
+                      fontFamily: 'inherit',
+                      boxSizing: 'border-box'
+                    }}
+                  />
+                </div>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
                 <button
                   onClick={() => {
                     setIsQuestionDialogOpen(false);
                     resetQuestionForm();
                   }}
-                  style={{ padding: '6px 12px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '12px' }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    backgroundColor: '#f3f4f6',
+                    color: '#0f172a',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600'
+                  }}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={editingQuestion ? handleUpdateQuestion : handleAddQuestion}
                   disabled={isSaving}
-                  style={{ padding: '6px 12px', backgroundColor: '#2196F3', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}
+                  style={{
+                    flex: 1,
+                    padding: '8px 12px',
+                    backgroundColor: '#0066cc',
+                    color: 'white',
+                    border: 'none',
+                    borderRadius: '4px',
+                    cursor: 'pointer',
+                    fontSize: '12px',
+                    fontWeight: '600',
+                    opacity: isSaving ? 0.6 : 1
+                  }}
                 >
-                  {editingQuestion ? 'Update' : 'Add'} Question
+                  {isSaving ? 'Saving...' : editingQuestion ? 'Update' : 'Add'} Question
                 </button>
               </div>
             </div>

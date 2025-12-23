@@ -477,7 +477,7 @@ PRINT '';
 
 -- Insert Users (2 Teachers + 3 Students)
 INSERT INTO Users (Id, Username, PasswordHash, Name, Email, Role, CreatedAt) VALUES
-('1', 'teacher1', '$2a$11$XJLqF.PZw7hqQN.yPmYULeIu5gBKJ8RZ.ZQPvPBCKxwEU7.4K7s1W', 'Dr. Sarah Wilson', 'sarah.wilson@eduportal.com', 1, '2024-01-15'),
+('1', 'teacher1', '$2a$11$XJLqF.PZw7hqQN.yPmYULeIu5gBKJ8RZ.ZQPvPBCKxwEU7.4K7s1W', 'Mr. Nimali Perera', 'nimal.perera@eduportal.com', 1, '2024-01-15'),
 ('2', 'teacher2', '$2a$11$XJLqF.PZw7hqQN.yPmYULeIu5gBKJ8RZ.ZQPvPBCKxwEU7.4K7s1W', 'Prof. Michael Chen', 'michael.chen@eduportal.com', 1, '2024-01-16'),
 ('3', 'student1', '$2a$11$XJLqF.PZw7hqQN.yPmYULeIu5gBKJ8RZ.ZQPvPBCKxwEU7.4K7s1W', 'John Smith', 'john.smith@student.edu', 0, '2024-02-01'),
 ('4', 'student2', '$2a$11$XJLqF.PZw7hqQN.yPmYULeIu5gBKJ8RZ.ZQPvPBCKxwEU7.4K7s1W', 'Emma Johnson', 'emma.johnson@student.edu', 0, '2024-02-02'),

@@ -1,10 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { BookOpen, FileText, User, CheckCircle, XCircle, AlertCircle, ChevronDown, Loader2, Sparkles, Zap, Save } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { courseApi, assessmentApi, type Course, type Assessment, type AssessmentAttempt, type Answer } from '@/lib/api';
 
@@ -387,298 +381,280 @@ const ReviewAnswers: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="max-w-7xl mx-auto p-6 space-y-6">
+    <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', padding: '24px 20px' }}>
+      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
         {/* Header */}
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Review Student Answers</h1>
-            <p className="text-muted-foreground">Evaluate and provide feedback on student submissions</p>
+        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+          <div style={{ flex: 1 }}>
+            <h1 style={{ fontSize: '26px', fontWeight: '700', margin: '0 0 4px 0', color: '#0f172a' }}>Review Answers</h1>
+            <p style={{ color: '#718096', margin: '0', fontSize: '13px' }}>Evaluate and provide feedback on submissions</p>
           </div>
-          <div className="flex gap-3">
-            <Button
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <button
               onClick={handleSaveScores}
-              disabled={savingScores || manualScores.size === 0}
-              variant="default"
+              disabled={savingScores || manualScores.size === 0 || !selectedAssessment}
+              style={{
+                padding: '8px 14px',
+                backgroundColor: '#0066cc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: '600',
+                opacity: savingScores || manualScores.size === 0 || !selectedAssessment ? 0.6 : 1
+              }}
             >
-              {savingScores ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Save Scores ({manualScores.size})
-                </>
-              )}
-            </Button>
-            <Button
+              {savingScores ? 'Saving...' : `Save (${manualScores.size})`}
+            </button>
+            <button
               onClick={handleEvaluateAll}
-              disabled={
-                evaluatingAll || 
-                expandedStudents.size === 0 ||
-                // Check if there are any unevaluated text answers
-                (() => {
-                  let hasUnevaluated = false;
-                  expandedStudents.forEach(attemptId => {
-                    const answers = answersMap.get(attemptId) || [];
-                    answers.forEach(answer => {
-                      const isTextQuestion = answer.questionType !== 'MultipleChoice' && answer.questionType !== 'TrueFalse';
-                      if (isTextQuestion && !evaluatedAnswers.has(answer.id)) {
-                        hasUnevaluated = true;
-                      }
-                    });
-                  });
-                  return !hasUnevaluated;
-                })()
-              }
-              className="bg-purple-600 hover:bg-purple-700"
+              disabled={evaluatingAll || expandedStudents.size === 0 || !selectedAssessment}
+              style={{
+                padding: '8px 14px',
+                backgroundColor: '#0066cc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: '600',
+                opacity: evaluatingAll || expandedStudents.size === 0 || !selectedAssessment ? 0.6 : 1
+              }}
             >
-              {evaluatingAll ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Evaluating All...
-                </>
-              ) : (
-                <>
-                  <Zap className="mr-2 h-4 w-4" />
-                  Evaluate All with AI
-                </>
-              )}
-            </Button>
+              {evaluatingAll ? 'Evaluating...' : 'AI Evaluate All'}
+            </button>
           </div>
         </div>
 
         {/* Filters */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px', marginBottom: '24px' }}>
           <div>
-            <label className="text-sm font-medium mb-2 block">Select Course</label>
-            <Select value={selectedCourse} onValueChange={setSelectedCourse} disabled={loadingCourses}>
-              <SelectTrigger>
-                <SelectValue placeholder={loadingCourses ? "Loading courses..." : "Choose a course"} />
-              </SelectTrigger>
-              <SelectContent>
-                {courses.map((course) => (
-                  <SelectItem key={course.id} value={course.id}>
-                    <div className="flex items-center gap-2">
-                      <BookOpen className="h-4 w-4" />
-                      {course.name}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: '#0f172a' }}>Select Course</label>
+            <select
+              value={selectedCourse}
+              onChange={(e) => setSelectedCourse(e.target.value)}
+              disabled={loadingCourses}
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '4px',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer'
+              }}
+            >
+              <option value="">{loadingCourses ? 'Loading...' : 'Choose a course'}</option>
+              {courses.map((course) => (
+                <option key={course.id} value={course.id}>
+                  {course.name}
+                </option>
+              ))}
+            </select>
           </div>
 
           <div>
-            <label className="text-sm font-medium mb-2 block">Select Assessment</label>
-            <Select 
-              value={selectedAssessment} 
-              onValueChange={setSelectedAssessment}
+            <label style={{ display: 'block', fontSize: '12px', fontWeight: '600', marginBottom: '6px', color: '#0f172a' }}>Select Assessment</label>
+            <select
+              value={selectedAssessment}
+              onChange={(e) => setSelectedAssessment(e.target.value)}
               disabled={!selectedCourse || loadingAssessments}
+              style={{
+                width: '100%',
+                padding: '8px',
+                border: '1px solid #e2e8f0',
+                borderRadius: '4px',
+                fontSize: '13px',
+                fontFamily: 'inherit',
+                cursor: 'pointer'
+              }}
             >
-              <SelectTrigger>
-                <SelectValue placeholder={loadingAssessments ? "Loading assessments..." : "Choose an assessment"} />
-              </SelectTrigger>
-              <SelectContent>
-                {assessments.map((assessment) => (
-                  <SelectItem key={assessment.id} value={assessment.id}>
-                    <div className="flex items-center gap-2">
-                      <FileText className="h-4 w-4" />
-                      {assessment.title}
-                    </div>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+              <option value="">{loadingAssessments ? 'Loading...' : 'Choose an assessment'}</option>
+              {assessments.map((assessment) => (
+                <option key={assessment.id} value={assessment.id}>
+                  {assessment.title}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
         {/* Loading State */}
         {loadingAttempts && (
-          <div className="flex items-center justify-center h-32">
-            <Loader2 className="h-8 w-8 animate-spin text-primary" />
+          <div style={{ padding: '40px', textAlign: 'center', color: '#718096', fontSize: '14px' }}>
+            Loading submissions...
           </div>
         )}
 
-        {/* Student Attempts */}
+        {/* Submissions */}
         {!loadingAttempts && selectedAssessment && (
-          <div className="space-y-6">
-            <h2 className="text-xl font-semibold">Student Submissions</h2>
+          <div>
+            <h2 style={{ fontSize: '16px', fontWeight: '700', margin: '0 0 14px 0', color: '#0f172a' }}>Student Submissions</h2>
             
             {attempts.length === 0 ? (
-              <Card>
-                <CardContent className="flex items-center justify-center h-32">
-                  <p className="text-muted-foreground">No student submissions found for this assessment.</p>
-                </CardContent>
-              </Card>
+              <div style={{ padding: '20px', textAlign: 'center', color: '#718096', fontSize: '13px' }}>
+                No submissions found for this assessment.
+              </div>
             ) : (
-              <div className="space-y-4">
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                 {attempts.map((attempt) => {
                   const isExpanded = expandedStudents.has(attempt.id);
                   const answers = answersMap.get(attempt.id) || [];
-                  const isLoadingAnswers = loadingAnswers.has(attempt.id);
 
                   return (
-                    <Card key={attempt.id} className="bg-card">
-                      <CardHeader>
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-3">
-                            <User className="h-5 w-5 text-primary" />
-                            <div>
-                              <CardTitle className="text-lg">{attempt.studentName}</CardTitle>
-                              <CardDescription>
-                                Submitted: {new Date(attempt.completedAt || attempt.startedAt).toLocaleString()}
-                              </CardDescription>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline">
-                              Score: {attempt.score ?? 0}/{attempt.maxScore ?? 0}
-                            </Badge>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => toggleExpanded(attempt.id)}
-                              className="flex items-center gap-2"
-                              disabled={isLoadingAnswers}
-                            >
-                              {isLoadingAnswers ? (
-                                <Loader2 className="h-4 w-4 animate-spin" />
-                              ) : (
-                                <>
-                                  {isExpanded ? 'Collapse' : 'Expand'}
-                                  <ChevronDown className={`h-4 w-4 transition-transform ${isExpanded ? 'rotate-180' : ''}`} />
-                                </>
-                              )}
-                            </Button>
-                          </div>
+                    <div key={attempt.id} style={{ borderBottom: '1px solid #e2e8f0' }}>
+                      <div
+                        onClick={() => toggleExpanded(attempt.id)}
+                        style={{
+                          padding: '12px',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          backgroundColor: isExpanded ? '#f8f9fa' : 'transparent'
+                        }}
+                      >
+                        <div style={{ flex: 1 }}>
+                          <h3 style={{ margin: '0', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{attempt.studentName}</h3>
+                          <p style={{ margin: '2px 0 0 0', fontSize: '11px', color: '#718096' }}>
+                            Score: {attempt.score ?? 0}/{attempt.maxScore ?? 0} • Submitted {new Date(attempt.completedAt || attempt.startedAt).toLocaleDateString()}
+                          </p>
                         </div>
-                      </CardHeader>
-                      
+                        <span style={{ fontSize: '20px', color: '#718096' }}>
+                          {isExpanded ? '▼' : '▶'}
+                        </span>
+                      </div>
+
                       {isExpanded && answers.length > 0 && (
-                        <CardContent className="space-y-4">
-                          {answers.map((answer) => {
+                        <div style={{ padding: '12px 0', borderTop: '1px solid #e2e8f0' }}>
+                          {answers.map((answer, index) => {
                             const isMCQ = answer.questionType === 'MultipleChoice' || answer.questionType === 'TrueFalse';
-                            
+                            const pointsEarned = answer.pointsEarned ?? 0;
+                            const isCorrect = pointsEarned === answer.questionPoints;
+                            const isPartial = pointsEarned > 0 && !isCorrect;
+
+                            const bgColor = isCorrect ? '#f0fdf4' : isPartial ? '#fefce8' : '#fef2f2';
+                            const borderColor = isCorrect ? '#86efac' : isPartial ? '#fde047' : '#fca5a5';
+
                             return (
-                              <div 
-                                key={answer.id} 
-                                className={`p-4 rounded-lg border ${getEvaluationColor(answer.isCorrect, answer.pointsEarned ?? 0, answer.questionPoints, answer.questionType)}`}
+                              <div
+                                key={answer.id}
+                                style={{
+                                  padding: '14px',
+                                  marginBottom: '12px',
+                                  backgroundColor: bgColor,
+                                  borderLeft: `4px solid ${borderColor}`,
+                                  borderRadius: '6px',
+                                  border: `1px solid ${borderColor}`
+                                }}
                               >
-                                {/* Question */}
-                                <div className="mb-4">
-                                  <h4 className="font-medium text-sm text-muted-foreground mb-2">Question:</h4>
-                                  <p className="text-foreground">{answer.questionText}</p>
-                                  {isMCQ && answer.questionOptions && answer.questionOptions.length > 0 && (
-                                    <div className="mt-2 space-y-1">
-                                      {answer.questionOptions.map((option) => (
-                                        <Badge 
-                                          key={option.id} 
-                                          variant={option.isCorrect ? "default" : "outline"}
-                                          className="mr-2"
-                                        >
-                                          {option.text}
-                                        </Badge>
-                                      ))}
-                                    </div>
-                                  )}
+                                {/* Question Number & Type */}
+                                <div style={{
+                                  display: 'flex',
+                                  justifyContent: 'space-between',
+                                  alignItems: 'start',
+                                  marginBottom: '10px'
+                                }}>
+                                  <h4 style={{ margin: '0', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>
+                                    Question {index + 1}: {answer.questionText}
+                                  </h4>
+                                  <span style={{
+                                    padding: '2px 8px',
+                                    borderRadius: '4px',
+                                    fontSize: '11px',
+                                    fontWeight: '600',
+                                    backgroundColor: isCorrect ? '#dbeafe' : isPartial ? '#fef3c7' : '#fee2e2',
+                                    color: isCorrect ? '#0369a1' : isPartial ? '#92400e' : '#991b1b'
+                                  }}>
+                                    {isCorrect ? '✓ Correct' : isPartial ? '◐ Partial' : '✗ Incorrect'}
+                                  </span>
                                 </div>
 
                                 {/* Student Answer */}
-                                <div className="mb-4">
-                                  <h4 className="font-medium text-sm text-muted-foreground mb-2">Student Answer:</h4>
-                                  <div className="p-3 bg-background/50 rounded-lg border">
-                                    <p className="text-foreground">
-                                      {isMCQ ? answer.selectedOptionText : answer.textAnswer}
+                                <div style={{ marginBottom: '8px' }}>
+                                  <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: '600', color: '#718096', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Student Answer:</p>
+                                  <p style={{ margin: '0', fontSize: '13px', color: '#0f172a', padding: '8px', backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: '4px' }}>
+                                    {isMCQ ? answer.selectedOptionText : answer.textAnswer}
+                                  </p>
+                                </div>
+
+                                {/* Correct Answer for MCQ */}
+                                {isMCQ && answer.questionOptions && (
+                                  <div style={{ marginBottom: '8px' }}>
+                                    <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: '600', color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>✓ Correct Answer:</p>
+                                    <p style={{ margin: '0', fontSize: '13px', color: '#15803d', padding: '8px', backgroundColor: '#f0fdf4', borderRadius: '4px', border: '1px solid #86efac' }}>
+                                      {answer.questionOptions.find(opt => opt.isCorrect)?.text || 'Not specified'}
                                     </p>
                                   </div>
-                                </div>
-
-                                {/* Correct Answer for MCQ or Expected Answer for Text Questions */}
-                                {isMCQ && answer.correctAnswer && (
-                                  <div className="mb-4">
-                                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Correct Answer:</h4>
-                                    <div className="p-3 bg-muted/30 rounded-lg border">
-                                      <p className="text-foreground text-sm">{answer.correctAnswer}</p>
-                                    </div>
-                                  </div>
                                 )}
 
+                                {/* Expected Answer for Text */}
                                 {!isMCQ && answer.expectedAnswer && (
-                                  <div className="mb-4">
-                                    <h4 className="font-medium text-sm text-muted-foreground mb-2">Expected Answer:</h4>
-                                    <div className="p-3 bg-muted/30 rounded-lg border">
-                                      <p className="text-foreground text-sm">{answer.expectedAnswer}</p>
-                                    </div>
+                                  <div style={{ marginBottom: '8px' }}>
+                                    <p style={{ margin: '0 0 4px 0', fontSize: '11px', fontWeight: '600', color: '#718096', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Expected Answer:</p>
+                                    <p style={{ margin: '0', fontSize: '13px', color: '#0f172a', padding: '8px', backgroundColor: 'rgba(255,255,255,0.5)', borderRadius: '4px' }}>
+                                      {answer.expectedAnswer}
+                                    </p>
                                   </div>
                                 )}
 
-                                {/* Evaluation Section */}
-                                <div className="space-y-3">
-                                  <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                      <Badge variant="outline">{answer.questionPoints} points</Badge>
-                                      <div className="flex items-center gap-2">
-                                        {getEvaluationIcon(answer.isCorrect, answer.pointsEarned ?? 0, answer.questionPoints)}
-                                        <Badge variant="secondary">
-                                          {answer.pointsEarned ?? 0}/{answer.questionPoints}
-                                        </Badge>
-                                      </div>
+                                {/* Score and AI Evaluation */}
+                                {!isMCQ && (
+                                  <div style={{
+                                    marginTop: '10px',
+                                    paddingTop: '10px',
+                                    borderTop: `1px solid ${borderColor}`,
+                                    display: 'flex',
+                                    gap: '10px',
+                                    alignItems: 'center'
+                                  }}>
+                                    <div style={{ flex: 1 }}>
+                                      <label style={{ fontSize: '11px', fontWeight: '600', color: '#718096', display: 'block', marginBottom: '4px' }}>Points Earned:</label>
+                                      <input
+                                        type="number"
+                                        min={0}
+                                        max={answer.questionPoints}
+                                        step={0.5}
+                                        value={manualScores.get(answer.id) ?? pointsEarned}
+                                        onChange={(e) => handleManualScoreChange(answer.id, e.target.value, answer.questionPoints, pointsEarned)}
+                                        style={{
+                                          padding: '6px 8px',
+                                          border: '1px solid #e2e8f0',
+                                          borderRadius: '4px',
+                                          fontSize: '13px',
+                                          width: '60px',
+                                          fontWeight: '600',
+                                          color: '#0f172a'
+                                        }}
+                                      />
+                                      <span style={{ fontSize: '11px', color: '#718096', marginLeft: '6px', fontWeight: '500' }}>/ {answer.questionPoints}</span>
                                     </div>
+                                    <button
+                                      onClick={() => handleEvaluateSingle(answer.id, answer)}
+                                      disabled={evaluatingAnswers.has(answer.id) || evaluatedAnswers.has(answer.id)}
+                                      style={{
+                                        padding: '6px 12px',
+                                        backgroundColor: evaluatedAnswers.has(answer.id) ? '#10b981' : '#0066cc',
+                                        color: 'white',
+                                        border: 'none',
+                                        borderRadius: '4px',
+                                        cursor: 'pointer',
+                                        fontSize: '12px',
+                                        fontWeight: '600',
+                                        opacity: evaluatingAnswers.has(answer.id) || evaluatedAnswers.has(answer.id) ? 0.6 : 1
+                                      }}
+                                    >
+                                      {evaluatingAnswers.has(answer.id) ? 'AI...' : evaluatedAnswers.has(answer.id) ? 'Done' : 'AI Eval'}
+                                    </button>
                                   </div>
-
-                                  {/* AI Grading for Text Questions */}
-                                  {!isMCQ && (
-                                    <div className="flex items-center gap-3 pt-2 border-t">
-                                      <div className="flex items-center gap-2 flex-1">
-                                        <label className="text-sm font-medium whitespace-nowrap">Manual Score:</label>
-                                        <Input
-                                          type="number"
-                                          min={0}
-                                          max={answer.questionPoints}
-                                          step={0.5}
-                                          value={manualScores.get(answer.id) ?? answer.pointsEarned ?? 0}
-                                          onChange={(e) => handleManualScoreChange(answer.id, e.target.value, answer.questionPoints, answer.pointsEarned ?? 0)}
-                                          className="w-24"
-                                          placeholder="0"
-                                        />
-                                        <span className="text-sm text-muted-foreground">/ {answer.questionPoints}</span>
-                                      </div>
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        onClick={() => handleEvaluateSingle(answer.id, answer)}
-                                        disabled={evaluatingAnswers.has(answer.id) || evaluatedAnswers.has(answer.id)}
-                                        className="border-purple-200 hover:bg-purple-50"
-                                      >
-                                        {evaluatingAnswers.has(answer.id) ? (
-                                          <>
-                                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                                            Evaluating...
-                                          </>
-                                        ) : evaluatedAnswers.has(answer.id) ? (
-                                          <>
-                                            <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                                            AI Evaluated
-                                          </>
-                                        ) : (
-                                          <>
-                                            <Sparkles className="mr-2 h-4 w-4 text-purple-600" />
-                                            Evaluate with AI
-                                          </>
-                                        )}
-                                      </Button>
-                                    </div>
-                                  )}
-                                </div>
+                                )}
                               </div>
                             );
                           })}
-                        </CardContent>
+                        </div>
                       )}
-                    </Card>
+                    </div>
                   );
                 })}
               </div>

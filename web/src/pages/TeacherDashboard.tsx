@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 import { courseApi, assessmentApi } from '@/lib/api';
 import type { Course, Assessment, EnrollmentWithDetails, AssessmentAttempt } from '@/lib/api';
 import { useToast } from '@/hooks/use-toast';
@@ -11,6 +11,7 @@ interface CourseWithDetails extends Course {
 
 const TeacherDashboard: React.FC = () => {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [courses, setCourses] = useState<CourseWithDetails[]>([]);
   const [assessments, setAssessments] = useState<Assessment[]>([]);
@@ -92,9 +93,9 @@ const TeacherDashboard: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '14px', color: '#666' }}>Loading dashboard...</div>
+          <div style={{ fontSize: '16px', color: '#718096', fontWeight: '500' }}>Loading your dashboard...</div>
         </div>
       </div>
     );
@@ -107,104 +108,126 @@ const TeacherDashboard: React.FC = () => {
     pendingEvaluations: pendingEvaluations
   };
 
-  return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#fff', padding: '20px' }}>
-      <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>Teacher Dashboard</h1>
-        <p style={{ color: '#666', marginBottom: '20px', fontSize: '12px' }}>Manage courses and assessments</p>
+  const handleManageCourse = (courseId: string) => {
+    navigate('/course-management', { state: { editCourseId: courseId } });
+  };
 
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '15px', marginBottom: '20px' }}>
-          <div style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
-            <div style={{ fontSize: '12px', color: '#666' }}>Total Courses</div>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', marginTop: '5px' }}>{stats.totalCourses}</div>
-          </div>
-          <div style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
-            <div style={{ fontSize: '12px', color: '#666' }}>Total Students</div>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', marginTop: '5px' }}>{stats.totalStudents}</div>
-          </div>
-          <div style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
-            <div style={{ fontSize: '12px', color: '#666' }}>Assessments</div>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', marginTop: '5px' }}>{stats.totalAssessments}</div>
-          </div>
-          <div style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
-            <div style={{ fontSize: '12px', color: '#666' }}>Pending</div>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', marginTop: '5px', color: '#d32f2f' }}>{stats.pendingEvaluations}</div>
-          </div>
+  return (
+    <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', padding: '24px 20px' }}>
+      <div style={{ maxWidth: '1000px', margin: '0 auto' }}>
+        {/* Header */}
+        <div style={{ marginBottom: '28px' }}>
+          <h1 style={{ fontSize: '28px', fontWeight: '700', margin: '0 0 4px 0', color: '#0f172a' }}>Teacher Dashboard</h1>
+          <p style={{ color: '#718096', margin: '0', fontSize: '14px' }}>Manage courses and assessments</p>
         </div>
 
-        {/* Courses */}
-        <div style={{ border: '1px solid #ddd', marginBottom: '20px', padding: '15px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 'bold', margin: '0' }}>Your Courses</h2>
-            <Link to="/course-management">
-              <button style={{ padding: '5px 10px', backgroundColor: '#2196F3', color: 'white', border: 'none', cursor: 'pointer', fontSize: '12px' }}>
-                Add Course
+        {/* Your Courses */}
+        <div style={{ marginBottom: '28px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: '700', margin: '0', color: '#0f172a' }}>Your Courses</h2>
+            <Link to="/course-management" style={{ textDecoration: 'none' }}>
+              <button style={{
+                padding: '8px 14px',
+                backgroundColor: '#0066cc',
+                color: 'white',
+                border: 'none',
+                borderRadius: '5px',
+                cursor: 'pointer',
+                fontSize: '12px',
+                fontWeight: '600'
+              }}>
+                + New Course
               </button>
             </Link>
           </div>
           {courses.length > 0 ? (
-            <div>
-              {courses.slice(0, 3).map((course) => (
-                <div key={course.id} style={{ marginBottom: '10px', padding: '10px', backgroundColor: '#f5f5f5', border: '1px solid #eee', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {courses.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()).slice(0, 3).map((course) => (
+                <div key={course.id} style={{
+                  padding: '10px 0',
+                  borderBottom: '1px solid #e2e8f0',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
                   <div>
-                    <div style={{ fontSize: '13px', fontWeight: 'bold' }}>{course.name}</div>
-                    <div style={{ fontSize: '11px', color: '#666' }}>
+                    <h4 style={{ margin: '0 0 2px 0', fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{course.name}</h4>
+                    <div style={{ fontSize: '12px', color: '#718096' }}>
                       {course.studentCount} students • {course.assessmentCount} assessments
                     </div>
                   </div>
-                  <Link to="/course-management">
-                    <button style={{ padding: '5px 10px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '11px' }}>
-                      View
-                    </button>
-                  </Link>
                 </div>
               ))}
-              <Link to="/course-management">
-                <button style={{ width: '100%', padding: '8px', backgroundColor: '#ddd', border: '1px solid #999', cursor: 'pointer', fontSize: '12px' }}>
-                  View All Courses
-                </button>
-              </Link>
             </div>
           ) : (
-            <p style={{ color: '#666', fontSize: '12px' }}>No courses created yet</p>
+            <div style={{ fontSize: '13px', color: '#718096', padding: '10px 0' }}>
+              No courses created yet
+            </div>
           )}
         </div>
 
         {/* Recent Activity */}
-        <div style={{ border: '1px solid #ddd', marginBottom: '20px', padding: '15px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>Recent Activity</h2>
-          {courses.length > 0 || assessments.length > 0 ? (
-            assessments.slice(0, 3).map((assessment) => (
-              <div key={assessment.id} style={{ marginBottom: '8px', padding: '8px', backgroundColor: '#f5f5f5', border: '1px solid #eee', fontSize: '12px' }}>
-                <div>{assessment.isPublished ? 'Published' : 'Created'}: {assessment.title}</div>
-                <div style={{ fontSize: '10px', color: '#666' }}>{new Date(assessment.createdAt).toLocaleDateString()}</div>
-              </div>
-            ))
+        <div style={{ marginBottom: '28px' }}>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', margin: '0 0 16px 0', color: '#0f172a' }}>Recent Activity</h2>
+          {assessments.length > 0 ? (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+              {assessments.slice(0, 4).map((assessment) => (
+                <div key={assessment.id} style={{
+                  padding: '10px 0',
+                  borderBottom: '1px solid #e2e8f0',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center'
+                }}>
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: '600', color: '#0f172a' }}>{assessment.title}</div>
+                    <div style={{ fontSize: '12px', color: '#718096', marginTop: '2px' }}>
+                      {assessment.isPublished ? '✅ Published' : '📝 Draft'} • {new Date(assessment.createdAt).toLocaleDateString()}
+                    </div>
+                  </div>
+                  <span style={{
+                    fontSize: '11px',
+                    fontWeight: '600',
+                    color: assessment.isPublished ? '#065f46' : '#92400e',
+                    padding: '3px 8px'
+                  }}>
+                    {assessment.isPublished ? 'Published' : 'Draft'}
+                  </span>
+                </div>
+              ))}
+            </div>
           ) : (
-            <p style={{ color: '#666', fontSize: '12px' }}>No activity yet</p>
+            <div style={{ fontSize: '13px', color: '#718096', padding: '10px 0' }}>
+              No activity yet
+            </div>
           )}
         </div>
 
         {/* Quick Links */}
-        <div style={{ border: '1px solid #ddd', padding: '15px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '10px' }}>Quick Actions</h2>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '10px' }}>
-            <Link to="/course-management">
-              <button style={{ width: '100%', padding: '12px', backgroundColor: '#2196F3', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}>
-                Manage Courses
-              </button>
-            </Link>
-            <Link to="/assessment-management">
-              <button style={{ width: '100%', padding: '12px', backgroundColor: '#FF9800', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}>
-                Create Assessment
-              </button>
-            </Link>
-            <Link to="/review-answers">
-              <button style={{ width: '100%', padding: '12px', backgroundColor: '#4CAF50', color: 'white', border: 'none', cursor: 'pointer', fontSize: '11px' }}>
-                Review Answers
-              </button>
-            </Link>
+        <div>
+          <h2 style={{ fontSize: '18px', fontWeight: '700', margin: '0 0 16px 0', color: '#0f172a' }}>Quick Links</h2>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '12px' }}>
+            {[
+              { label: 'Manage Courses', to: '/course-management' },
+              { label: 'Create Assessment', to: '/assessment-management' },
+              { label: 'Review Answers', to: '/review-answers' }
+            ].map((action, idx) => (
+              <Link key={idx} to={action.to} style={{ textDecoration: 'none' }}>
+                <button style={{
+                  width: '100%',
+                  padding: '10px 12px',
+                  backgroundColor: '#0066cc',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '6px',
+                  cursor: 'pointer',
+                  fontSize: '13px',
+                  fontWeight: '600'
+                }}>
+                  {action.label}
+                </button>
+              </Link>
+            ))}
           </div>
         </div>
       </div>

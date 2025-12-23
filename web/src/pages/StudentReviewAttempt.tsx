@@ -205,121 +205,179 @@ const StudentReviewAttempt: React.FC = () => {
               </CardContent>
             </Card>
           ) : (
-            answers.map((answer, index) => (
-            <Card key={answer.id} className={`border-l-4 ${answer.isCorrect ? 'border-l-green-500' : 'border-l-red-500'}`}>
-              <CardHeader>
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start gap-3 flex-1">
-                    <Badge variant="outline" className="shrink-0">Q{index + 1}</Badge>
-                    <div className="flex-1">
-                      <CardTitle className="text-lg">{answer.questionText}</CardTitle>
-                      <div className="flex gap-2 mt-2">
-                        <Badge variant={answer.questionType === 'MultipleChoice' ? 'default' : 'secondary'} className="text-xs">
-                          {answer.questionType === 'MultipleChoice' ? 'Multiple Choice' : 'Text Answer'}
-                        </Badge>
-                        <Badge variant="outline" className="text-xs">
-                          {answer.questionPoints} points
-                        </Badge>
-                      </div>
+            answers.map((answer, index) => {
+              const isMCQ = answer.questionType === 'MultipleChoice' || answer.questionType === 'TrueFalse';
+              const isCorrect = answer.isCorrect;
+              const bgColor = isCorrect ? '#f0fdf4' : '#fef2f2';
+              const borderColor = isCorrect ? '#86efac' : '#fca5a5';
+
+              return (
+              <div
+                key={answer.id}
+                style={{
+                  background: 'white',
+                  border: `2px solid ${borderColor}`,
+                  borderLeft: `4px solid ${borderColor}`,
+                  borderRadius: '10px',
+                  overflow: 'hidden',
+                  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                {/* Question Header */}
+                <div style={{
+                  padding: '16px',
+                  background: bgColor,
+                  borderBottom: `1px solid ${borderColor}`,
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'start',
+                  gap: '12px'
+                }}>
+                  <div style={{ flex: 1 }}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
+                      <span style={{
+                        background: isCorrect ? '#10b981' : '#ef4444',
+                        color: 'white',
+                        padding: '4px 10px',
+                        borderRadius: '4px',
+                        fontSize: '12px',
+                        fontWeight: '600'
+                      }}>
+                        Q{index + 1}
+                      </span>
+                      <h3 style={{ margin: '0', fontSize: '14px', fontWeight: '700', color: '#0f172a' }}>
+                        {answer.questionText}
+                      </h3>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2 shrink-0">
-                    {answer.isCorrect ? (
-                      <Badge variant="default" className="bg-green-500">
-                        <CheckCircle className="h-3 w-3 mr-1" />
-                        Correct
-                      </Badge>
-                    ) : (
-                      <Badge variant="destructive">
-                        <XCircle className="h-3 w-3 mr-1" />
-                        Incorrect
-                      </Badge>
-                    )}
-                    <Badge variant="outline">
-                      {answer.pointsEarned ?? 0}/{answer.questionPoints}
-                    </Badge>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexShrink: 0 }}>
+                    <span style={{
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      background: isCorrect ? '#dbeafe' : '#fee2e2',
+                      color: isCorrect ? '#0369a1' : '#991b1b'
+                    }}>
+                      {isCorrect ? '✓ Correct' : '✗ Incorrect'}
+                    </span>
+                    <span style={{
+                      padding: '4px 10px',
+                      borderRadius: '4px',
+                      fontSize: '11px',
+                      fontWeight: '600',
+                      background: '#f0f1f3',
+                      color: '#0f172a'
+                    }}>
+                      {answer.pointsEarned ?? 0}/{answer.questionPoints} pts
+                    </span>
                   </div>
                 </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                {/* Multiple Choice Answer */}
-                {answer.questionType === 'MultipleChoice' && answer.questionOptions && (
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium text-muted-foreground">Options:</p>
-                    {answer.questionOptions.map((option, optIndex) => {
-                      const isSelected = option.id === answer.selectedOptionId;
-                      const isCorrect = option.isCorrect;
-                      
-                      return (
-                        <div
-                          key={option.id}
-                          className={`flex items-start gap-2 p-3 rounded-lg border ${
-                            isCorrect 
-                              ? 'bg-green-50 border-green-200' 
-                              : isSelected 
-                                ? 'bg-red-50 border-red-200' 
-                                : 'bg-background'
-                          }`}
-                        >
-                          <span className="font-medium text-sm shrink-0">
-                            {String.fromCharCode(65 + optIndex)}.
-                          </span>
-                          <span className={`flex-1 text-sm ${isCorrect ? 'text-green-900 font-medium' : isSelected ? 'text-red-900' : ''}`}>
-                            {option.text}
-                          </span>
-                          {isSelected && (
-                            <Badge variant="outline" className="shrink-0 text-xs">
-                              Your Answer
-                            </Badge>
-                          )}
-                          {isCorrect && (
-                            <Badge variant="outline" className="shrink-0 text-xs bg-green-100 text-green-700 border-green-300">
-                              Correct Answer
-                            </Badge>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                )}
 
-                {/* Text Answer */}
-                {answer.questionType !== 'MultipleChoice' && (
-                  <div className="space-y-3">
+                {/* Question Content */}
+                <div style={{ padding: '16px' }}>
+                  {/* Multiple Choice Answer */}
+                  {isMCQ && answer.questionOptions && (
+                    <div style={{ marginBottom: '12px' }}>
+                      <p style={{ margin: '0 0 10px 0', fontSize: '12px', fontWeight: '600', color: '#718096', textTransform: 'uppercase', letterSpacing: '0.5px' }}>All Options:</p>
+                      {answer.questionOptions.map((option, optIndex) => {
+                        const isSelected = option.id === answer.selectedOptionId;
+                        const isCorrectOption = option.isCorrect;
+
+                        return (
+                          <div
+                            key={option.id}
+                            style={{
+                              padding: '10px 12px',
+                              marginBottom: '8px',
+                              borderRadius: '6px',
+                              border: `1px solid ${isCorrectOption ? '#10b981' : isSelected ? '#ef4444' : '#e2e8f0'}`,
+                              background: isCorrectOption ? '#f0fdf4' : isSelected ? '#fef2f2' : '#f8fafc'
+                            }}
+                          >
+                            <div style={{ display: 'flex', gap: '10px', alignItems: 'start' }}>
+                              <span style={{ fontSize: '12px', fontWeight: '700', color: '#718096', minWidth: '24px' }}>
+                                {String.fromCharCode(65 + optIndex)}.
+                              </span>
+                              <div style={{ flex: 1 }}>
+                                <p style={{
+                                  margin: '0',
+                                  fontSize: '13px',
+                                  color: isCorrectOption ? '#15803d' : isSelected ? '#7f1d1d' : '#0f172a',
+                                  fontWeight: isCorrectOption || isSelected ? '600' : '400'
+                                }}>
+                                  {option.text}
+                                </p>
+                              </div>
+                              <div style={{ display: 'flex', gap: '6px', flexShrink: 0 }}>
+                                {isSelected && !isCorrectOption && (
+                                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '3px', background: '#fee2e2', color: '#991b1b', fontWeight: '600' }}>Your Answer</span>
+                                )}
+                                {isCorrectOption && (
+                                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '3px', background: '#dcfce7', color: '#15803d', fontWeight: '600' }}>✓ Correct Answer</span>
+                                )}
+                                {isSelected && isCorrectOption && (
+                                  <span style={{ fontSize: '11px', padding: '2px 8px', borderRadius: '3px', background: '#dcfce7', color: '#15803d', fontWeight: '600' }}>✓ Your Answer</span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Text Answer */}
+                  {!isMCQ && (
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground mb-2">Your Answer:</p>
-                      <div className="p-3 bg-muted/50 rounded-lg border">
-                        <p className="text-sm whitespace-pre-wrap">
-                          {answer.textAnswer || <span className="italic text-muted-foreground">No answer provided</span>}
-                        </p>
-                      </div>
-                    </div>
-                    
-                    {answer.expectedAnswer && (
-                      <div>
-                        <p className="text-sm font-medium text-green-700 mb-2">Model Answer:</p>
-                        <div className="p-3 bg-green-50 rounded-lg border border-green-200">
-                          <p className="text-sm text-green-900 whitespace-pre-wrap">{answer.expectedAnswer}</p>
+                      <div style={{ marginBottom: '14px' }}>
+                        <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '600', color: '#718096', textTransform: 'uppercase', letterSpacing: '0.5px' }}>Your Answer:</p>
+                        <div style={{
+                          padding: '12px',
+                          background: '#f8fafc',
+                          borderRadius: '6px',
+                          border: '1px solid #e2e8f0'
+                        }}>
+                          <p style={{
+                            margin: '0',
+                            fontSize: '13px',
+                            color: '#0f172a',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word'
+                          }}>
+                            {answer.textAnswer || <span style={{ fontStyle: 'italic', color: '#718096' }}>No answer provided</span>}
+                          </p>
                         </div>
                       </div>
-                    )}
-                  </div>
-                )}
 
-                {/* Points Breakdown */}
-                {answer.pointsEarned !== null && (
-                  <div className="pt-3 border-t">
-                    <div className="flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Points Earned:</span>
-                      <span className="font-semibold">
-                        {answer.pointsEarned} / {answer.questionPoints} points
-                      </span>
+                      {answer.expectedAnswer && (
+                        <div>
+                          <p style={{ margin: '0 0 8px 0', fontSize: '12px', fontWeight: '600', color: '#15803d', textTransform: 'uppercase', letterSpacing: '0.5px' }}>✓ Model Answer:</p>
+                          <div style={{
+                            padding: '12px',
+                            background: '#f0fdf4',
+                            borderRadius: '6px',
+                            border: '1px solid #86efac'
+                          }}>
+                            <p style={{
+                              margin: '0',
+                              fontSize: '13px',
+                              color: '#15803d',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word'
+                            }}>
+                              {answer.expectedAnswer}
+                            </p>
+                          </div>
+                        </div>
+                      )}
                     </div>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-            ))
+                  )}
+                </div>
+              </div>
+            );
+            })
           )}
         </div>
 

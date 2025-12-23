@@ -13,6 +13,8 @@ interface AssessmentCard {
   score?: number;
   maxScore?: number;
   durationMinutes?: number;
+  attemptId?: string;
+  resultsReleased?: boolean;
 }
 
 const MyCourses: React.FC = () => {
@@ -53,6 +55,8 @@ const MyCourses: React.FC = () => {
                 score: attempt?.score,
                 maxScore: attempt?.maxScore,
                 durationMinutes: assessment.durationMinutes,
+                attemptId: attempt?.id,
+                resultsReleased: attempt?.resultsReleased,
               });
             });
           } catch (error) {
@@ -85,72 +89,75 @@ const MyCourses: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#f8f9fa' }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '14px', color: '#666' }}>Loading assessments...</div>
+          <div style={{ fontSize: '16px', color: '#718096', fontWeight: '500' }}>Loading your assessments...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', backgroundColor: '#fff', padding: '20px' }}>
+    <div style={{ minHeight: '100vh', backgroundColor: '#ffffff', padding: '24px 20px' }}>
       <div style={{ maxWidth: '900px', margin: '0 auto' }}>
-        <h1 style={{ fontSize: '24px', fontWeight: 'bold', marginBottom: '10px' }}>My Courses & Assessments</h1>
-        
-        {/* Stats */}
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '15px', marginBottom: '20px' }}>
-          <div style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
-            <div style={{ fontSize: '12px', color: '#666' }}>Total Assessments</div>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', marginTop: '5px' }}>{assessmentCards.length}</div>
-          </div>
-          <div style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
-            <div style={{ fontSize: '12px', color: '#666' }}>Completed</div>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', marginTop: '5px', color: '#4CAF50' }}>{stats.completed}</div>
-          </div>
-          <div style={{ border: '1px solid #ccc', padding: '15px', backgroundColor: '#f9f9f9' }}>
-            <div style={{ fontSize: '12px', color: '#666' }}>Pending</div>
-            <div style={{ fontSize: '22px', fontWeight: 'bold', marginTop: '5px', color: '#FF9800' }}>{stats.pending}</div>
-          </div>
+        {/* Header */}
+        <div style={{ marginBottom: '24px' }}>
+          <h1 style={{ fontSize: '26px', fontWeight: '700', margin: '0 0 4px 0', color: '#0f172a' }}>Assessments</h1>
+          <p style={{ color: '#718096', margin: '0', fontSize: '13px' }}>{assessmentCards.length} available</p>
         </div>
-
+        
         {/* Assessments List */}
-        <div style={{ border: '1px solid #ddd', padding: '15px' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 'bold', marginBottom: '15px' }}>Available Assessments</h2>
-          {assessmentCards.length > 0 ? (
-            assessmentCards.map((card) => (
-              <div key={card.assessmentId} style={{ marginBottom: '10px', padding: '10px', border: '1px solid #eee', backgroundColor: '#f5f5f5' }}>
+        {assessmentCards.length > 0 ? (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+            {assessmentCards.map((card) => (
+              <div key={card.assessmentId} style={{
+                padding: '12px 0',
+                borderBottom: '1px solid #e2e8f0'
+              }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
                   <div>
-                    <h3 style={{ margin: '0', fontSize: '13px', fontWeight: 'bold' }}>{card.assessmentTitle}</h3>
-                    <p style={{ margin: '5px 0 0 0', fontSize: '11px', color: '#666' }}>Course: {card.courseName}</p>
-                    <p style={{ margin: '3px 0 0 0', fontSize: '11px', color: '#666' }}>{card.assessmentDescription}</p>
+                    <h3 style={{ margin: '0 0 3px 0', fontSize: '14px', fontWeight: '600', color: '#0f172a' }}>{card.assessmentTitle}</h3>
+                    <p style={{ margin: '0', fontSize: '12px', color: '#718096' }}>{card.courseName}</p>
                   </div>
-                  <div style={{ textAlign: 'right' }}>
-                    {card.isCompleted && (
-                      <span style={{ fontSize: '11px', color: '#4CAF50', fontWeight: 'bold' }}>✓ Completed</span>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    {card.isCompleted && card.resultsReleased && (
+                      <span style={{ fontSize: '12px', fontWeight: '700', color: '#065f46', backgroundColor: '#dcfce7', padding: '2px 8px', borderRadius: '4px' }}>
+                        {card.score}/{card.maxScore} pts
+                      </span>
                     )}
-                    {!card.isCompleted && (
-                      <span style={{ fontSize: '11px', color: '#FF9800', fontWeight: 'bold' }}>⏳ Pending</span>
-                    )}
+                    <span style={{ fontSize: '12px', fontWeight: '600', color: card.isCompleted ? '#065f46' : '#92400e' }}>
+                      {card.isCompleted ? (card.resultsReleased ? '✓ Graded' : '✓ Done') : 'Pending'}
+                    </span>
                   </div>
                 </div>
-                <div style={{ fontSize: '10px', color: '#999', marginBottom: '8px' }}>
-                  Duration: {card.durationMinutes} minutes
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '12px' }}>
+                  <div style={{ fontSize: '12px', color: '#718096' }}>
+                    {card.durationMinutes} min • {card.assessmentDescription}
+                  </div>
+                  <button
+                    onClick={() => card.isCompleted && card.attemptId ? navigate(`/review-attempt/${card.attemptId}`) : startAssessment(card.assessmentId)}
+                    style={{
+                      padding: '6px 12px',
+                      backgroundColor: card.isCompleted ? (card.resultsReleased ? '#10b981' : '#f59e0b') : '#0066cc',
+                      color: 'white',
+                      border: 'none',
+                      borderRadius: '5px',
+                      cursor: 'pointer',
+                      fontSize: '12px',
+                      fontWeight: '600',
+                      opacity: 1
+                    }}>
+                    {card.isCompleted ? (card.resultsReleased ? 'View Results' : 'Submitted') : 'Start'}
+                  </button>
                 </div>
-                <button
-                  onClick={() => startAssessment(card.assessmentId)}
-                  disabled={card.isCompleted}
-                  style={{ padding: '6px 12px', backgroundColor: card.isCompleted ? '#ddd' : '#2196F3', color: card.isCompleted ? '#666' : 'white', border: 'none', cursor: card.isCompleted ? 'not-allowed' : 'pointer', fontSize: '11px' }}
-                >
-                  {card.isCompleted ? 'Completed' : 'Start Assessment'}
-                </button>
               </div>
-            ))
-          ) : (
-            <p style={{ color: '#666', fontSize: '12px' }}>No assessments available</p>
-          )}
-        </div>
+            ))}
+          </div>
+        ) : (
+          <div style={{ padding: '20px 0', color: '#718096', fontSize: '13px' }}>
+            No assessments available
+          </div>
+        )}
       </div>
     </div>
   );

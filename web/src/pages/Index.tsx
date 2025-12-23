@@ -19,18 +19,30 @@ const Index = () => {
 
   if (isLoading) {
     return (
-      <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+      <div style={{
+        minHeight: '100vh',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        backgroundColor: '#f8f9fa'
+      }}>
         <div style={{ textAlign: 'center' }}>
-          <div style={{ fontSize: '14px', color: '#666' }}>Loading...</div>
+          <div style={{ fontSize: '16px', color: '#718096', fontWeight: '500' }}>Loading...</div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      backgroundColor: '#f8f9fa'
+    }}>
       <div style={{ textAlign: 'center' }}>
-        <div style={{ fontSize: '14px', color: '#666' }}>Redirecting...</div>
+        <div style={{ fontSize: '16px', color: '#718096', fontWeight: '500' }}>Redirecting...</div>
       </div>
     </div>
   );
