@@ -97,16 +97,28 @@ builder.Services.AddScoped<IAssessmentService, AssessmentService>();
 builder.Services.AddScoped<IProgressService, ProgressService>();
 
 // Register AI Evaluation Service - Choose based on configuration
-var useOpenRouter = builder.Configuration.GetValue<bool>("OpenRouter:Enabled");
-if (useOpenRouter && !string.IsNullOrWhiteSpace(builder.Configuration["OpenRouter:ApiKey"]))
+var openRouterConfigSection = builder.Configuration.GetSection("OpenRouter");
+var openRouterEnabled = openRouterConfigSection["Enabled"] == "true" || openRouterConfigSection["Enabled"] == "True";
+var openRouterApiKey = openRouterConfigSection["ApiKey"] ?? "";
+
+Console.WriteLine($"[Config Debug] OpenRouter:Enabled = '{openRouterConfigSection["Enabled"]}'");
+Console.WriteLine($"[Config Debug] OpenRouter:ApiKey exists = {!string.IsNullOrWhiteSpace(openRouterApiKey)}");
+Console.WriteLine($"[Config Debug] openRouterEnabled parsed = {openRouterEnabled}");
+
+if (openRouterEnabled && !string.IsNullOrWhiteSpace(openRouterApiKey) && openRouterApiKey != "${OPENROUTER_API_KEY}")
 {
     builder.Services.AddScoped<IAiEvaluationService, OpenRouterAiService>();
-    Console.WriteLine("✓ Using OpenRouter AI Service (Qwen model)");
+    Console.WriteLine("✓ REGISTERED: OpenRouter AI Service (qwen/qwen-2.5-7b-instruct)");
+    Console.WriteLine($"✓ API Endpoint: {openRouterConfigSection["ApiUrl"]}");
+    Console.WriteLine($"✓ Model: {openRouterConfigSection["LlmModel"]}");
 }
 else
 {
     builder.Services.AddScoped<IAiEvaluationService, AiEvaluationService>();
-    Console.WriteLine("✓ Using Ollama AI Service (local)");
+    Console.WriteLine("✓ REGISTERED: Ollama AI Service (local)");
+    if (!openRouterEnabled) Console.WriteLine("  Reason: OpenRouter not enabled");
+    if (string.IsNullOrWhiteSpace(openRouterApiKey)) Console.WriteLine("  Reason: API Key is empty");
+    if (openRouterApiKey == "${OPENROUTER_API_KEY}") Console.WriteLine("  Reason: API Key is placeholder");
 }
 
 // Configure CORS
